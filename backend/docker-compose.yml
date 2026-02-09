@@ -1,0 +1,68 @@
+# TaskPulse - AI Assistant - Docker Compose Configuration
+# Development and production deployment
+
+version: '3.8'
+
+services:
+  # ==================== Backend API ====================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: taskpulse-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - DEBUG=${DEBUG:-true}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/taskpulse.db
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-jwt-secret-change-in-production}
+      - AI_PROVIDER=${AI_PROVIDER:-mock}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:8080}
+    volumes:
+      - taskpulse-data:/app/data
+      - ./backend/app:/app/app:ro  # Mount for development hot-reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - taskpulse-network
+
+  # ==================== Development Utilities ====================
+  # Uncomment for development with hot-reload
+  # backend-dev:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: taskpulse-backend-dev
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - APP_ENV=development
+  #     - DEBUG=true
+  #     - DATABASE_URL=sqlite+aiosqlite:///./data/taskpulse.db
+  #   volumes:
+  #     - ./backend/app:/app/app
+  #     - taskpulse-data:/app/data
+  #   command: ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+  #   networks:
+  #     - taskpulse-network
+
+# ==================== Volumes ====================
+volumes:
+  taskpulse-data:
+    driver: local
+    name: taskpulse-data
+
+# ==================== Networks ====================
+networks:
+  taskpulse-network:
+    driver: bridge
+    name: taskpulse-network

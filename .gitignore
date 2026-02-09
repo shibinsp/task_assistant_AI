@@ -3,3 +3,10 @@ dist/
 .DS_Store
 .env
 .env.*
+__pycache__/
+*.pyc
+venv/
+*.db
+*.db-shm
+*.db-wal
+.pytest_cache/
