@@ -215,13 +215,16 @@ class Task(Base):
     @property
     def progress_percentage(self) -> float:
         """Calculate progress based on subtasks or time."""
-        if self.subtasks:
-            total = len(self.subtasks)
-            if total == 0:
-                return 0.0
-            completed = sum(1 for st in self.subtasks if st.is_completed)
-            return round((completed / total) * 100, 1)
-        elif self.estimated_hours and self.actual_hours:
+        from sqlalchemy.orm import attributes
+        state = attributes.instance_state(self)
+        # Only access subtasks if already loaded (avoid lazy-load in async)
+        if 'subtasks' in state.dict:
+            subtasks = self.subtasks
+            if subtasks:
+                total = len(subtasks)
+                completed = sum(1 for st in subtasks if st.is_completed)
+                return round((completed / total) * 100, 1)
+        if self.estimated_hours and self.actual_hours:
             return min(100.0, round((self.actual_hours / self.estimated_hours) * 100, 1))
         return 0.0
 

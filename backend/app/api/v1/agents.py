@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
-from ..v1.dependencies import get_current_user
+from ..v1.dependencies import get_current_active_user
 
 router = APIRouter(prefix="/agents", tags=["Agents"])
 
@@ -101,7 +101,7 @@ class RecommendationsResponse(BaseModel):
 async def list_agents(
     agent_type: Optional[str] = Query(None, description="Filter by agent type"),
     is_enabled: Optional[bool] = Query(None, description="Filter by enabled status"),
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -142,181 +142,56 @@ async def list_agents(
     return agents
 
 
-@router.get("/{agent_name}", response_model=AgentInfo)
-async def get_agent(
-    agent_name: str,
-    current_user: dict = Depends(get_current_user),
+# NOTE: /stats, /recommendations, /orchestrate MUST be before /{agent_name}
+# to avoid the path parameter capturing "stats" etc. as an agent name.
+
+@router.get("/stats")
+async def get_agent_stats(
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get details for a specific agent.
+    Get overall agent system statistics.
     """
     from ...agents.orchestrator import get_orchestrator
 
     orchestrator = get_orchestrator()
-    agent = orchestrator.get_agent(agent_name)
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_name}' not found"
-        )
-
-    stats = agent.get_stats()
-    exec_count = stats.get("execution_count", 0)
-    error_count = stats.get("error_count", 0)
-    success_count = exec_count - error_count
-
-    return AgentInfo(
-        name=agent.name,
-        display_name=agent.name.replace("_", " ").title(),
-        description=agent.description,
-        agent_type=_get_agent_type([c.value for c in agent.capabilities]),
-        capabilities=[c.value for c in agent.capabilities],
-        status=stats.get("status", "unknown"),
-        is_enabled=agent.enabled,
-        execution_count=exec_count,
-        success_count=success_count,
-        error_count=error_count,
-        avg_duration_ms=stats.get("avg_duration_ms", 0.0),
-    )
+    return orchestrator.get_stats()
 
 
-@router.post("/{agent_name}/execute", response_model=AgentExecuteResponse)
-async def execute_agent(
-    agent_name: str,
-    request: AgentExecuteRequest,
-    current_user: dict = Depends(get_current_user),
+@router.get("/recommendations", response_model=RecommendationsResponse)
+async def get_recommendations(
+    task_id: Optional[str] = Query(None, description="Specific task for recommendations"),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Manually execute an agent.
+    Get AI-powered recommendations for the current user.
 
-    Triggers the agent with the provided payload and context.
+    Aggregates insights from multiple agents (predictor, skill matcher, coach).
     """
     from ...agents.orchestrator import get_orchestrator
-    from ...agents.base import AgentEvent, EventType
-    from ...agents.context import AgentContext, UserData
 
     orchestrator = get_orchestrator()
-    agent = orchestrator.get_agent(agent_name)
 
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_name}' not found"
-        )
-
-    if not agent.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Agent '{agent_name}' is disabled"
-        )
-
-    # Create event
-    event = AgentEvent(
-        event_type=EventType.USER_COMMAND,
-        payload=request.event_data,
-        user_id=current_user.get("id"),
-        task_id=request.task_id,
-        metadata=request.context,
-    )
-
-    # Create context
-    context = AgentContext(
-        event=event,
-        user=UserData(
-            id=current_user.get("id", ""),
-            email=current_user.get("email", ""),
-            full_name=current_user.get("full_name", ""),
-        ),
-        db=db,
-    )
-
-    # Execute
     try:
-        result = await orchestrator.execute_agent(agent_name, context)
-
-        return AgentExecuteResponse(
-            execution_id=str(uuid4()),
-            agent_name=agent_name,
-            status="completed" if result.success else "failed",
-            output=result.output,
-            duration_ms=result.duration_ms or 0,
+        recommendations = await orchestrator.get_recommendations(
+            user_id=current_user.id,
+            task_id=task_id,
+            db=db,
         )
+
+        return RecommendationsResponse(**recommendations)
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-
-
-@router.get("/{agent_name}/executions", response_model=List[ExecutionRecord])
-async def get_agent_executions(
-    agent_name: str,
-    limit: int = Query(50, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Get execution history for an agent.
-    """
-    from ...agents.orchestrator import get_orchestrator
-
-    orchestrator = get_orchestrator()
-    history = orchestrator.get_execution_history(limit=limit, agent_name=agent_name)
-
-    return [
-        ExecutionRecord(
-            id=h["id"],
-            agent_name=h["agent_name"],
-            event_type=h["event_type"],
-            status="completed" if h["success"] else "failed",
-            success=h["success"],
-            started_at=datetime.fromisoformat(h["started_at"]),
-            completed_at=datetime.fromisoformat(h["completed_at"]) if h.get("completed_at") else None,
-            duration_ms=h.get("duration_ms"),
-            error_message=h.get("error"),
-        )
-        for h in history
-    ]
-
-
-@router.patch("/{agent_name}/config")
-async def update_agent_config(
-    agent_name: str,
-    update: AgentConfigUpdate,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Update agent configuration.
-    """
-    from ...agents.orchestrator import get_orchestrator
-
-    orchestrator = get_orchestrator()
-    agent = orchestrator.get_agent(agent_name)
-
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent '{agent_name}' not found"
-        )
-
-    if update.is_enabled is not None:
-        agent.enabled = update.is_enabled
-
-    if update.config:
-        agent.config.update(update.config)
-
-    return {"message": f"Agent '{agent_name}' configuration updated", "agent_name": agent_name}
+        # Return empty recommendations on error
+        return RecommendationsResponse()
 
 
 @router.post("/orchestrate")
 async def run_agent_pipeline(
     request: OrchestrateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -343,16 +218,16 @@ async def run_agent_pipeline(
     event = AgentEvent(
         event_type=EventType.AGENT_CHAIN,
         payload=request.event_data,
-        user_id=current_user.get("id"),
+        user_id=current_user.id,
     )
 
     # Create context
     context = AgentContext(
         event=event,
         user=UserData(
-            id=current_user.get("id", ""),
-            email=current_user.get("email", ""),
-            full_name=current_user.get("full_name", ""),
+            id=current_user.id,
+            email=current_user.email,
+            full_name=f"{current_user.first_name} {current_user.last_name}",
         ),
         db=db,
     )
@@ -395,47 +270,177 @@ async def run_agent_pipeline(
         )
 
 
-@router.get("/recommendations", response_model=RecommendationsResponse)
-async def get_recommendations(
-    task_id: Optional[str] = Query(None, description="Specific task for recommendations"),
-    current_user: dict = Depends(get_current_user),
+# ============== Agent-specific endpoints (/{agent_name} routes) ==============
+
+@router.get("/{agent_name}", response_model=AgentInfo)
+async def get_agent(
+    agent_name: str,
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get AI-powered recommendations for the current user.
-
-    Aggregates insights from multiple agents (predictor, skill matcher, coach).
+    Get details for a specific agent.
     """
     from ...agents.orchestrator import get_orchestrator
 
     orchestrator = get_orchestrator()
+    agent = orchestrator.get_agent(agent_name)
 
-    try:
-        recommendations = await orchestrator.get_recommendations(
-            user_id=current_user.get("id"),
-            task_id=task_id,
-            db=db,
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_name}' not found"
         )
 
-        return RecommendationsResponse(**recommendations)
+    stats = agent.get_stats()
+    exec_count = stats.get("execution_count", 0)
+    error_count = stats.get("error_count", 0)
+    success_count = exec_count - error_count
 
-    except Exception as e:
-        # Return empty recommendations on error
-        return RecommendationsResponse()
+    return AgentInfo(
+        name=agent.name,
+        display_name=agent.name.replace("_", " ").title(),
+        description=agent.description,
+        agent_type=_get_agent_type([c.value for c in agent.capabilities]),
+        capabilities=[c.value for c in agent.capabilities],
+        status=stats.get("status", "unknown"),
+        is_enabled=agent.enabled,
+        execution_count=exec_count,
+        success_count=success_count,
+        error_count=error_count,
+        avg_duration_ms=stats.get("avg_duration_ms", 0.0),
+    )
 
 
-@router.get("/stats")
-async def get_agent_stats(
-    current_user: dict = Depends(get_current_user),
+@router.post("/{agent_name}/execute", response_model=AgentExecuteResponse)
+async def execute_agent(
+    agent_name: str,
+    request: AgentExecuteRequest,
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Get overall agent system statistics.
+    Manually execute an agent.
+
+    Triggers the agent with the provided payload and context.
+    """
+    from ...agents.orchestrator import get_orchestrator
+    from ...agents.base import AgentEvent, EventType
+    from ...agents.context import AgentContext, UserData
+
+    orchestrator = get_orchestrator()
+    agent = orchestrator.get_agent(agent_name)
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_name}' not found"
+        )
+
+    if not agent.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Agent '{agent_name}' is disabled"
+        )
+
+    # Create event
+    event = AgentEvent(
+        event_type=EventType.USER_COMMAND,
+        payload=request.event_data,
+        user_id=current_user.id,
+        task_id=request.task_id,
+        metadata=request.context,
+    )
+
+    # Create context
+    context = AgentContext(
+        event=event,
+        user=UserData(
+            id=current_user.id,
+            email=current_user.email,
+            full_name=f"{current_user.first_name} {current_user.last_name}",
+        ),
+        db=db,
+    )
+
+    # Execute
+    try:
+        result = await orchestrator.execute_agent(agent_name, context)
+
+        return AgentExecuteResponse(
+            execution_id=str(uuid4()),
+            agent_name=agent_name,
+            status="completed" if result.success else "failed",
+            output=result.output,
+            duration_ms=result.duration_ms or 0,
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+
+@router.get("/{agent_name}/executions", response_model=List[ExecutionRecord])
+async def get_agent_executions(
+    agent_name: str,
+    limit: int = Query(50, ge=1, le=100),
+    current_user = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get execution history for an agent.
     """
     from ...agents.orchestrator import get_orchestrator
 
     orchestrator = get_orchestrator()
-    return orchestrator.get_stats()
+    history = orchestrator.get_execution_history(limit=limit, agent_name=agent_name)
+
+    return [
+        ExecutionRecord(
+            id=h["id"],
+            agent_name=h["agent_name"],
+            event_type=h["event_type"],
+            status="completed" if h["success"] else "failed",
+            success=h["success"],
+            started_at=datetime.fromisoformat(h["started_at"]),
+            completed_at=datetime.fromisoformat(h["completed_at"]) if h.get("completed_at") else None,
+            duration_ms=h.get("duration_ms"),
+            error_message=h.get("error"),
+        )
+        for h in history
+    ]
+
+
+@router.patch("/{agent_name}/config")
+async def update_agent_config(
+    agent_name: str,
+    update: AgentConfigUpdate,
+    current_user = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update agent configuration.
+    """
+    from ...agents.orchestrator import get_orchestrator
+
+    orchestrator = get_orchestrator()
+    agent = orchestrator.get_agent(agent_name)
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent '{agent_name}' not found"
+        )
+
+    if update.is_enabled is not None:
+        agent.enabled = update.is_enabled
+
+    if update.config:
+        agent.config.update(update.config)
+
+    return {"message": f"Agent '{agent_name}' configuration updated", "agent_name": agent_name}
 
 
 # ============== Helper Functions ==============

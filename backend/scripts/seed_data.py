@@ -88,7 +88,7 @@ async def seed_database():
             id=generate_uuid(),
             name=DEMO_ORG["name"],
             slug=DEMO_ORG["slug"],
-            plan_tier=DEMO_ORG["plan_tier"],
+            plan=DEMO_ORG["plan_tier"],
             is_active=True
         )
         session.add(org)
@@ -108,7 +108,7 @@ async def seed_database():
                 last_name=user_data["last_name"],
                 role=user_data["role"],
                 is_active=True,
-                email_verified=True,
+                is_email_verified=True,
                 team_id="team-alpha" if user_data["role"] in [UserRole.EMPLOYEE, UserRole.TEAM_LEAD] else None
             )
             session.add(user)
@@ -153,8 +153,8 @@ async def seed_database():
                     org_id=org.id,
                     user_id=user.id,
                     skill_id=skill.id,
-                    proficiency_level=random.randint(4, 9),
-                    confidence_score=random.uniform(0.6, 0.95)
+                    level=random.randint(4, 9),
+                    confidence=random.uniform(0.6, 0.95)
                 )
                 session.add(user_skill)
             print(f"   Assigned {len(user_skills)} skills to {user.first_name}")
@@ -227,9 +227,11 @@ async def seed_database():
 
         # Create check-ins
         print("\n✅ Creating check-ins...")
+        from app.models.checkin import CheckInStatus, ProgressIndicator
         in_progress_tasks = [t for t in tasks if t.status == TaskStatus.IN_PROGRESS]
         for task in in_progress_tasks:
             for cycle in range(1, random.randint(2, 4)):
+                is_responded = random.random() > 0.2
                 checkin = CheckIn(
                     id=generate_uuid(),
                     org_id=org.id,
@@ -237,9 +239,10 @@ async def seed_database():
                     user_id=task.assigned_to,
                     cycle_number=cycle,
                     scheduled_at=datetime.utcnow() - timedelta(hours=3 * cycle),
-                    response_status="responded" if random.random() > 0.2 else "pending",
-                    progress_percentage=min(100, cycle * 25 + random.randint(-10, 10)),
-                    has_blocker=random.random() > 0.8
+                    status=CheckInStatus.RESPONDED if is_responded else CheckInStatus.PENDING,
+                    responded_at=datetime.utcnow() - timedelta(hours=3 * cycle - 1) if is_responded else None,
+                    progress_indicator=random.choice(list(ProgressIndicator)) if is_responded else None,
+                    friction_detected=random.random() > 0.8
                 )
                 session.add(checkin)
             print(f"   Created check-ins for: {task.title[:30]}...")
@@ -251,9 +254,9 @@ async def seed_database():
         config = CheckInConfig(
             id=generate_uuid(),
             org_id=org.id,
-            default_interval_hours=3,
+            interval_hours=3,
             auto_escalate_after_missed=2,
-            silent_when_on_track=True
+            silent_mode_threshold=0.8
         )
         session.add(config)
 

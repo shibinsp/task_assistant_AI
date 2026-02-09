@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
-from ..v1.dependencies import get_current_user
+from ..v1.dependencies import get_current_active_user
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -89,7 +89,7 @@ _active_connections: Dict[str, List[WebSocket]] = {}
 @router.post("", response_model=MessageResponse)
 async def send_message(
     request: MessageRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -100,7 +100,7 @@ async def send_message(
     from ...agents.orchestrator import get_orchestrator
 
     orchestrator = get_orchestrator()
-    user_id = current_user.get("id", "")
+    user_id = current_user.id
 
     # Get or create conversation
     conversation_id = request.conversation_id or str(uuid4())
@@ -200,13 +200,13 @@ async def send_message(
 async def list_conversations(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     limit: int = Query(20, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     List user's conversations.
     """
-    user_id = current_user.get("id", "")
+    user_id = current_user.id
 
     # Filter conversations for this user
     user_conversations = [
@@ -247,13 +247,13 @@ async def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
 async def get_conversation(
     conversation_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Get a specific conversation with all messages.
     """
-    user_id = current_user.get("id", "")
+    user_id = current_user.id
 
     conversation = _conversations.get(conversation_id)
 
@@ -291,13 +291,13 @@ async def get_conversation(
 @router.delete("/conversations/{conversation_id}")
 async def delete_conversation(
     conversation_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Delete a conversation.
     """
-    user_id = current_user.get("id", "")
+    user_id = current_user.id
 
     conversation = _conversations.get(conversation_id)
 
@@ -321,13 +321,13 @@ async def delete_conversation(
 @router.post("/conversations/{conversation_id}/end")
 async def end_conversation(
     conversation_id: str,
-    current_user: dict = Depends(get_current_user),
+    current_user = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
     End an active conversation.
     """
-    user_id = current_user.get("id", "")
+    user_id = current_user.id
 
     conversation = _conversations.get(conversation_id)
 

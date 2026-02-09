@@ -1,47 +1,47 @@
 # TaskPulse - AI Assistant - Backend Dependencies
 
 # ==================== Core Framework ====================
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-multipart==0.0.6
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
 
 # ==================== Database ====================
-sqlalchemy==2.0.25
-aiosqlite==0.19.0
-greenlet==3.0.3
-alembic==1.13.1
+sqlalchemy>=2.0.25
+aiosqlite>=0.19.0
+greenlet>=3.0.3
+alembic>=1.13.1
 
 # ==================== Authentication ====================
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.2
-email-validator==2.1.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.1.2
+email-validator>=2.1.0
 
 # ==================== AI/ML (Mock for now) ====================
-openai==1.12.0
-anthropic==0.18.0
-tiktoken==0.6.0
+openai>=1.12.0
+anthropic>=0.18.0
+tiktoken>=0.6.0
 
 # ==================== Validation ====================
-pydantic==2.6.0
-pydantic-settings==2.1.0
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
 
 # ==================== Background Tasks ====================
-apscheduler==3.10.4
+apscheduler>=3.10.4
 
 # ==================== WebSockets ====================
-websockets==12.0
+websockets>=12.0
 
 # ==================== Reports ====================
-openpyxl==3.1.2
-reportlab==4.1.0
+openpyxl>=3.1.2
+reportlab>=4.1.0
 
 # ==================== Testing ====================
-pytest==8.0.0
-pytest-asyncio==0.23.4
-httpx==0.26.0
-pytest-cov==4.1.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.4
+httpx>=0.26.0
+pytest-cov>=4.1.0
 
 # ==================== Utilities ====================
-python-dateutil==2.8.2
-pytz==2024.1
+python-dateutil>=2.8.2
+pytz>=2024.1
