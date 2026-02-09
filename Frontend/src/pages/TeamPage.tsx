@@ -24,7 +24,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -236,7 +235,7 @@ export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('members');
 
-  const { data: usersData, isLoading } = useQuery({
+  const { data: usersData } = useQuery({
     queryKey: queryKeys.team.users({ search: searchQuery || undefined }),
     queryFn: () => teamService.listUsers({ search: searchQuery || undefined, limit: 100 }),
   });

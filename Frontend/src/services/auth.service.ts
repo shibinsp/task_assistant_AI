@@ -6,6 +6,9 @@ import type {
   ApiCurrentUser,
   ApiPasswordChange,
   ApiUserUpdate,
+  ApiConsentResponse,
+  ApiConsentUpdate,
+  ApiSession,
 } from '@/types/api';
 
 export const authService = {
@@ -42,6 +45,11 @@ export const authService = {
     await apiClient.post('/auth/logout');
   },
 
+  async logoutAll(): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>('/auth/logout-all');
+    return data;
+  },
+
   async getMe(): Promise<ApiCurrentUser> {
     const { data } = await apiClient.get<ApiCurrentUser>('/auth/me');
     return data;
@@ -53,5 +61,33 @@ export const authService = {
 
   async updateProfile(userId: string, payload: ApiUserUpdate): Promise<void> {
     await apiClient.patch(`/users/${userId}`, payload);
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
+    return data;
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>('/auth/reset-password', {
+      token,
+      new_password: newPassword,
+    });
+    return data;
+  },
+
+  async getConsent(): Promise<ApiConsentResponse> {
+    const { data } = await apiClient.get<ApiConsentResponse>('/auth/consent');
+    return data;
+  },
+
+  async updateConsent(payload: ApiConsentUpdate): Promise<ApiConsentResponse> {
+    const { data } = await apiClient.patch<ApiConsentResponse>('/auth/consent', payload);
+    return data;
+  },
+
+  async getSessions(): Promise<ApiSession[]> {
+    const { data } = await apiClient.get<ApiSession[]>('/auth/sessions');
+    return data;
   },
 };

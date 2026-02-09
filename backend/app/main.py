@@ -280,10 +280,9 @@ from app.api.v1 import admin
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 # Multi-Agent System
-# Temporarily disabled due to import errors
-# from app.api.v1 import agents, chat
-# app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
-# app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
+from app.api.v1 import agents, chat
+app.include_router(agents.router, prefix="/api/v1", tags=["Agents"])
+app.include_router(chat.router, prefix="/api/v1", tags=["Chat"])
 
 
 # ==================== Run Application ====================

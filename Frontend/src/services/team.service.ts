@@ -1,5 +1,5 @@
 import apiClient from '@/lib/api-client';
-import type { ApiUserListResponse, ApiUserCreate } from '@/types/api';
+import type { ApiUserListResponse, ApiUserCreate, ApiUser, ApiUserPermissions } from '@/types/api';
 
 export interface UserListParams {
   role?: string;
@@ -16,17 +16,27 @@ export const teamService = {
     return data;
   },
 
-  async getUser(userId: string) {
-    const { data } = await apiClient.get(`/users/${userId}`);
+  async getUser(userId: string): Promise<ApiUser> {
+    const { data } = await apiClient.get<ApiUser>(`/users/${userId}`);
     return data;
   },
 
-  async createUser(payload: ApiUserCreate) {
-    const { data } = await apiClient.post('/users', payload);
+  async createUser(payload: ApiUserCreate): Promise<ApiUser> {
+    const { data } = await apiClient.post<ApiUser>('/users', payload);
     return data;
   },
 
-  async deleteUser(userId: string) {
+  async deleteUser(userId: string): Promise<void> {
     await apiClient.delete(`/users/${userId}`);
+  },
+
+  async activateUser(userId: string): Promise<ApiUser> {
+    const { data } = await apiClient.post<ApiUser>(`/users/${userId}/activate`);
+    return data;
+  },
+
+  async getUserPermissions(userId: string): Promise<ApiUserPermissions> {
+    const { data } = await apiClient.get<ApiUserPermissions>(`/users/${userId}/permissions`);
+    return data;
   },
 };

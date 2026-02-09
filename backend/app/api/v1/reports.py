@@ -86,6 +86,43 @@ async def get_team_workload(
 
 
 @router.get(
+    "/workload",
+    summary="Get workload for current user's team"
+)
+async def get_my_team_workload(
+    current_user: User = Depends(get_current_active_user),
+    service: AnalyticsService = Depends(get_analytics_service)
+):
+    """Get workload distribution for the current user's team."""
+    team_id = current_user.team_id or current_user.org_id
+    return await service.get_team_workload(team_id, current_user.org_id)
+
+
+@router.get(
+    "/productivity",
+    summary="Get productivity for current user's team"
+)
+async def get_my_team_productivity(
+    period: Optional[str] = Query(None, description="Period: week, month, quarter"),
+    current_user: User = Depends(get_current_active_user),
+    service: ReportService = Depends(get_report_service)
+):
+    """Get productivity report for the current user's team."""
+    team_id = current_user.team_id or current_user.org_id
+    end = datetime.utcnow()
+    period_days = {"week": 7, "month": 30, "quarter": 90}.get(period or "month", 30)
+    start = end - timedelta(days=period_days)
+
+    return await service.generate_team_productivity_report(
+        org_id=current_user.org_id,
+        team_id=team_id,
+        start_date=start,
+        end_date=end,
+        format="json"
+    )
+
+
+@router.get(
     "/velocity",
     summary="Get velocity chart data"
 )

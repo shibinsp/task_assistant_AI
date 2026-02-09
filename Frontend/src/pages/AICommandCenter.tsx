@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Sparkles,
   Send,
@@ -18,7 +18,7 @@ import {
   Mic,
   Image as ImageIcon,
   Paperclip,
-  Loader2,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { aiService } from '@/services/ai.service';
+import { chatService } from '@/services/chat.service';
+import { queryKeys } from '@/hooks/useApi';
 import { getApiErrorMessage } from '@/lib/api-client';
 
 // Message types
@@ -56,15 +58,6 @@ const aiSuggestions = [
   'Analyze team productivity trends',
   'Suggest tasks to delegate',
 ];
-
-// Mock AI responses
-const mockResponses: Record<string, string> = {
-  'default': "I'd be happy to help you with that! Could you provide more details about what you'd like to accomplish?",
-  'task': "I've created a task for you. Would you like me to assign it to someone or set a due date?",
-  'schedule': "I can help you schedule that. What time works best for you and the participants?",
-  'analytics': "Based on your recent data, your team's velocity has increased by 23% this week. Would you like to see a detailed breakdown?",
-  'priority': "Here are your top priorities for today:\n\n1. Fix authentication bug (High Priority)\n2. Update API documentation (Medium Priority)\n3. Review pull requests (Medium Priority)",
-};
 
 // Typing indicator component
 function TypingIndicator() {
@@ -186,7 +179,14 @@ export default function AICommandCenter() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch conversation history
+  const { data: conversations, refetch: refetchConversations } = useQuery({
+    queryKey: queryKeys.chat.conversations,
+    queryFn: () => chatService.listConversations({ limit: 20 }),
+  });
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -195,7 +195,35 @@ export default function AICommandCenter() {
     }
   }, [messages]);
 
-  const unblockMutation = useMutation({
+  const chatMutation = useMutation({
+    mutationFn: (message: string) =>
+      chatService.sendMessage({
+        message,
+        conversation_id: conversationId ?? undefined,
+      }),
+    onSuccess: (data) => {
+      if (data.conversation_id) {
+        setConversationId(data.conversation_id);
+      }
+      const aiMessage: Message = {
+        id: data.conversation_id || (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.message.content,
+        timestamp: new Date(),
+        suggestions: data.suggestions?.slice(0, 3),
+        actions: data.actions?.map((a) => ({ label: a.label, action: a.action })),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      setIsTyping(false);
+      refetchConversations();
+    },
+    onError: () => {
+      // Fall back to unblock API
+      unblockFallback.mutate(inputValue);
+    },
+  });
+
+  const unblockFallback = useMutation({
     mutationFn: (query: string) => aiService.unblock({ query }),
     onSuccess: (data) => {
       const aiMessage: Message = {
@@ -223,6 +251,24 @@ export default function AICommandCenter() {
     },
   });
 
+  const loadConversation = async (convId: string) => {
+    try {
+      const conv = await chatService.getConversation(convId);
+      setConversationId(convId);
+      const loaded: Message[] = (conv.messages ?? []).map((m, i) => ({
+        id: `${convId}-${i}`,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: new Date(m.timestamp),
+      }));
+      if (loaded.length > 0) {
+        setMessages(loaded);
+      }
+    } catch {
+      // ignore - conversation may have been deleted
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim()) return;
 
@@ -238,7 +284,7 @@ export default function AICommandCenter() {
     setInputValue('');
     setIsTyping(true);
 
-    unblockMutation.mutate(query);
+    chatMutation.mutate(query);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -401,22 +447,54 @@ export default function AICommandCenter() {
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
+            {/* Conversation History */}
             <Card>
               <CardContent className="p-4">
-                <h3 className="font-medium mb-3">Recent AI Actions</h3>
-                <div className="space-y-3">
-                  {[
-                    { action: 'Created 3 tasks', time: '2 min ago' },
-                    { action: 'Generated weekly report', time: '1 hour ago' },
-                    { action: 'Scheduled team meeting', time: '3 hours ago' },
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{item.action}</span>
-                      <span className="text-xs text-muted-foreground">{item.time}</span>
-                    </div>
-                  ))}
+                <h3 className="font-medium mb-3 flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 text-primary" />
+                  Conversations
+                </h3>
+                <div className="space-y-2">
+                  {conversations && conversations.length > 0 ? (
+                    conversations.slice(0, 10).map((conv) => (
+                      <button
+                        key={conv.id}
+                        onClick={() => loadConversation(conv.id)}
+                        className={`w-full text-left text-sm p-2 rounded-lg transition-colors ${
+                          conversationId === conv.id
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <div className="truncate">{conv.title ?? 'Conversation'}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {new Date(conv.last_message_at ?? conv.started_at).toLocaleDateString()}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">No conversations yet</p>
+                  )}
                 </div>
+                {conversationId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3 gap-2"
+                    onClick={() => {
+                      setConversationId(null);
+                      setMessages([{
+                        id: 'welcome',
+                        role: 'assistant',
+                        content: "Hello! I'm your AI assistant. What would you like to do?",
+                        timestamp: new Date(),
+                        suggestions: aiSuggestions.slice(0, 3),
+                      }]);
+                    }}
+                  >
+                    New Conversation
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>

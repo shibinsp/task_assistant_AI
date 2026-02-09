@@ -19,6 +19,14 @@ import {
   ChevronRight,
   LogOut,
   Command,
+  MessageCircle,
+  Building2,
+  Shield,
+  BookOpen,
+  GraduationCap,
+  TrendingUp,
+  LineChart,
+  Plug,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,13 +50,29 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-const sidebarItems = [
+interface SidebarItem {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href: string;
+  badge?: string;
+  roles?: string[];
+}
+
+const allSidebarItems: SidebarItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: CheckSquare, label: 'Tasks', href: '/tasks' },
-  { icon: Bot, label: 'AI Command', href: '/ai', badge: 'New' },
+  { icon: MessageCircle, label: 'Check-Ins', href: '/checkins' },
+  { icon: Bot, label: 'AI Command', href: '/ai' },
+  { icon: GraduationCap, label: 'Skills', href: '/skills' },
   { icon: Workflow, label: 'Automation', href: '/automation' },
   { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-  { icon: Users, label: 'Team', href: '/team' },
+  { icon: TrendingUp, label: 'Predictions', href: '/predictions', roles: ['admin', 'manager'] },
+  { icon: Users, label: 'Team', href: '/team', roles: ['admin', 'manager'] },
+  { icon: LineChart, label: 'Workforce', href: '/workforce', roles: ['admin', 'manager'] },
+  { icon: BookOpen, label: 'Knowledge Base', href: '/knowledge-base' },
+  { icon: Plug, label: 'Integrations', href: '/integrations', roles: ['admin'] },
+  { icon: Building2, label: 'Organization', href: '/organization', roles: ['admin'] },
+  { icon: Shield, label: 'Admin', href: '/admin', roles: ['admin'] },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -57,6 +81,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout, isAuthenticated } = useAuthStore();
   const { sidebarOpen, toggleSidebar, toggleCommandPalette } = useUIStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const sidebarItems = allSidebarItems.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(user?.role || '');
+  });
 
   const { data: unreadData } = useQuery({
     queryKey: queryKeys.notifications.unreadCount,

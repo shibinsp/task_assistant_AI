@@ -15,6 +15,14 @@ import AutomationPage from './pages/AutomationPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import TeamPage from './pages/TeamPage';
 import SettingsPage from './pages/SettingsPage';
+import CheckInsPage from './pages/CheckInsPage';
+import OrganizationSettingsPage from './pages/OrganizationSettingsPage';
+import AdminPage from './pages/AdminPage';
+import KnowledgeBasePage from './pages/KnowledgeBasePage';
+import SkillsPage from './pages/SkillsPage';
+import PredictionsPage from './pages/PredictionsPage';
+import WorkforcePage from './pages/WorkforcePage';
+import IntegrationsPage from './pages/IntegrationsPage';
 
 // Components
 import { Toaster } from '@/components/ui/sonner';
@@ -95,6 +103,70 @@ function App() {
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkins"
+              element={
+                <ProtectedRoute>
+                  <CheckInsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organization"
+              element={
+                <ProtectedRoute>
+                  <OrganizationSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge-base"
+              element={
+                <ProtectedRoute>
+                  <KnowledgeBasePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/skills"
+              element={
+                <ProtectedRoute>
+                  <SkillsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/predictions"
+              element={
+                <ProtectedRoute>
+                  <PredictionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/workforce"
+              element={
+                <ProtectedRoute>
+                  <WorkforcePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/integrations"
+              element={
+                <ProtectedRoute>
+                  <IntegrationsPage />
                 </ProtectedRoute>
               }
             />

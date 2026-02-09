@@ -46,7 +46,7 @@ import {
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { tasksService } from '@/services/tasks.service';
 import { queryKeys } from '@/hooks/useApi';
-import { mapTaskToFrontend, mapStatusToApi, mapPriorityToApi, type FrontendTask, type FrontendTaskStatus, type FrontendTaskPriority } from '@/types/mappers';
+import { mapTaskToFrontend, mapStatusToApi, type FrontendTask, type FrontendTaskStatus } from '@/types/mappers';
 import type { ApiTaskCreate, ApiTaskPriority } from '@/types/api';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -232,7 +232,7 @@ function TaskCard({ task, onStatusChange, onDelete }: { task: FrontendTask; onSt
 }
 
 // List View
-function ListView({ tasks, onStatusChange, onDelete }: { tasks: FrontendTask[]; onStatusChange: (id: string, status: FrontendTaskStatus) => void; onDelete: (id: string) => void }) {
+function ListView({ tasks, onStatusChange: _onStatusChange, onDelete: _onDelete }: { tasks: FrontendTask[]; onStatusChange: (id: string, status: FrontendTaskStatus) => void; onDelete: (id: string) => void }) {
   return (
     <Card>
       <div className="overflow-x-auto">

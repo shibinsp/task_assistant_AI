@@ -24,19 +24,31 @@ class MessageRequest(BaseModel):
     """Send a message to the chat agent"""
     message: str = Field(..., min_length=1, max_length=4000)
     conversation_id: Optional[str] = None
+    agent_name: Optional[str] = None
     context: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MessageResponse(BaseModel):
-    """Response from chat agent"""
-    message_id: str
-    conversation_id: str
+class ChatMessage(BaseModel):
+    """A single chat message matching frontend ApiChatMessage"""
+    role: str  # 'user' | 'assistant' | 'system'
     content: str
-    agent_name: str
-    timestamp: datetime
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ChatAction(BaseModel):
+    """An action suggestion"""
+    label: str
+    action: str
+    data: Optional[Dict[str, Any]] = None
+
+
+class MessageResponse(BaseModel):
+    """Response from chat agent - matches frontend ApiChatMessageResponse"""
+    conversation_id: str
+    message: ChatMessage
     suggestions: List[str] = []
-    actions: List[Dict[str, Any]] = []
+    actions: List[ChatAction] = []
 
 
 class ConversationInfo(BaseModel):
@@ -64,11 +76,6 @@ class ConversationDetail(BaseModel):
     last_message_at: datetime
 
 
-class ConversationListResponse(BaseModel):
-    """List of conversations"""
-    conversations: List[ConversationInfo]
-    total: int
-
 
 # ============== In-Memory Storage (for demo) ==============
 
@@ -79,7 +86,7 @@ _active_connections: Dict[str, List[WebSocket]] = {}
 
 # ============== Endpoints ==============
 
-@router.post("/message", response_model=MessageResponse)
+@router.post("", response_model=MessageResponse)
 async def send_message(
     request: MessageRequest,
     current_user: dict = Depends(get_current_user),
@@ -131,55 +138,65 @@ async def send_message(
         )
 
         # Add agent response to conversation
+        now = datetime.utcnow().isoformat()
         agent_message = {
             "id": str(uuid4()),
-            "role": "agent",
+            "role": "assistant",
             "content": result.message,
             "agent_name": result.agent_name,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now,
             "metadata": result.output,
         }
         conversation["messages"].append(agent_message)
-        conversation["last_message_at"] = datetime.utcnow().isoformat()
+        conversation["last_message_at"] = now
 
         # Extract suggestions from output
         suggestions = result.output.get("suggestions", [])
 
+        # Build actions list
+        actions = [
+            ChatAction(label=a.get("label", ""), action=a.get("action", ""), data=a.get("data"))
+            for a in (result.actions or [])
+        ]
+
         return MessageResponse(
-            message_id=agent_message["id"],
             conversation_id=conversation_id,
-            content=result.message,
-            agent_name=result.agent_name,
-            timestamp=datetime.fromisoformat(agent_message["timestamp"]),
-            metadata=result.output,
+            message=ChatMessage(
+                role="assistant",
+                content=result.message,
+                timestamp=now,
+                metadata=result.output,
+            ),
             suggestions=suggestions,
-            actions=result.actions,
+            actions=actions,
         )
 
     except Exception as e:
         # Fallback response on error
-        error_message = {
+        now = datetime.utcnow().isoformat()
+        error_msg = {
             "id": str(uuid4()),
-            "role": "agent",
+            "role": "assistant",
             "content": "I'm having trouble processing that. Could you try again?",
             "agent_name": "chat_agent",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": now,
         }
-        conversation["messages"].append(error_message)
+        conversation["messages"].append(error_msg)
 
         return MessageResponse(
-            message_id=error_message["id"],
             conversation_id=conversation_id,
-            content=error_message["content"],
-            agent_name="chat_agent",
-            timestamp=datetime.fromisoformat(error_message["timestamp"]),
-            metadata={"error": str(e)},
+            message=ChatMessage(
+                role="assistant",
+                content=error_msg["content"],
+                timestamp=now,
+                metadata={"error": str(e)},
+            ),
             suggestions=["Show my tasks", "I need help", "What can you do?"],
             actions=[],
         )
 
 
-@router.get("/conversations", response_model=ConversationListResponse)
+@router.get("/conversations", response_model=List[ConversationInfo])
 async def list_conversations(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
     limit: int = Query(20, ge=1, le=100),
@@ -213,7 +230,7 @@ async def list_conversations(
     # Apply limit
     user_conversations = user_conversations[:limit]
 
-    conversations = [
+    return [
         ConversationInfo(
             id=conv["id"],
             title=conv.get("title") or _generate_title(conv),
@@ -225,11 +242,6 @@ async def list_conversations(
         )
         for conv in user_conversations
     ]
-
-    return ConversationListResponse(
-        conversations=conversations,
-        total=len(conversations)
-    )
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
@@ -257,11 +269,19 @@ async def get_conversation(
             detail="Not authorized to view this conversation"
         )
 
+    # Normalize message roles: "agent" → "assistant"
+    messages = []
+    for m in conversation.get("messages", []):
+        msg = dict(m)
+        if msg.get("role") == "agent":
+            msg["role"] = "assistant"
+        messages.append(msg)
+
     return ConversationDetail(
         id=conversation["id"],
         title=conversation.get("title") or _generate_title(conversation),
         agent_name=conversation.get("agent_name", "chat_agent"),
-        messages=conversation.get("messages", []),
+        messages=messages,
         context_data=conversation.get("context_data", {}),
         started_at=datetime.fromisoformat(conversation["started_at"]),
         last_message_at=datetime.fromisoformat(conversation["last_message_at"]),
@@ -409,7 +429,7 @@ async def websocket_chat(websocket: WebSocket):
 
                 agent_message = {
                     "id": str(uuid4()),
-                    "role": "agent",
+                    "role": "assistant",
                     "content": result.message,
                     "agent_name": result.agent_name,
                     "timestamp": datetime.utcnow().isoformat(),

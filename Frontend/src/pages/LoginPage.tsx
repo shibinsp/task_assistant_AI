@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Sparkles, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
+import { useMutation } from '@tanstack/react-query';
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
   ArrowRight,
   Github,
   Chrome,
@@ -17,9 +18,79 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useAuthStore } from '@/store/authStore';
+import { authService } from '@/services/auth.service';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
+
+function ForgotPasswordDialog() {
+  const [email, setEmail] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const forgotMutation = useMutation({
+    mutationFn: (emailAddr: string) => authService.forgotPassword(emailAddr),
+    onSuccess: () => {
+      toast.success('Password reset email sent. Check your inbox.');
+      setOpen(false);
+      setEmail('');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button type="button" className="text-sm text-primary hover:underline">
+          Forgot password?
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reset Password</DialogTitle>
+          <DialogDescription>
+            Enter your email address and we'll send you a link to reset your password.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label htmlFor="reset-email">Email</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="reset-email"
+                type="email"
+                placeholder="you@example.com"
+                className="pl-10"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button
+            onClick={() => forgotMutation.mutate(email)}
+            disabled={!email || forgotMutation.isPending}
+            className="w-full gap-2"
+          >
+            {forgotMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Mail className="w-4 h-4" />
+            )}
+            Send Reset Link
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -145,9 +216,7 @@ export default function LoginPage() {
                   Remember me
                 </Label>
               </div>
-              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                Forgot password?
-              </Link>
+              <ForgotPasswordDialog />
             </div>
 
             <Button type="submit" className="w-full gap-2" disabled={isLoading}>

@@ -16,19 +16,26 @@ import {
   Moon,
   Monitor,
   Loader2,
+  LogOut,
+  Fingerprint,
+  Globe,
+  Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useThemeStore, type ThemeMode, type AccentColor } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { settingsService } from '@/services/settings.service';
+import { authService } from '@/services/auth.service';
 import { notificationsService } from '@/services/notifications.service';
 import { queryKeys } from '@/hooks/useApi';
 import { splitFullName } from '@/types/mappers';
@@ -492,6 +499,179 @@ function SecuritySection() {
   );
 }
 
+// Privacy & Consent Section
+function PrivacySection() {
+  const { data: consent, isLoading } = useQuery({
+    queryKey: queryKeys.auth.consent,
+    queryFn: () => authService.getConsent(),
+  });
+
+  const qc = useQueryClient();
+
+  const updateConsentMutation = useMutation({
+    mutationFn: (update: Partial<Pick<NonNullable<typeof consent>, 'ai_monitoring' | 'skill_tracking' | 'analytics' | 'marketing'>>) =>
+      authService.updateConsent(update),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.auth.consent });
+      toast.success('Privacy preferences updated');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+        <Card><CardContent className="p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
+      </div>
+    );
+  }
+
+  const consentItems = [
+    {
+      key: 'analytics' as const,
+      label: 'Analytics & Usage Data',
+      description: 'Allow collection of anonymized usage data to improve the product experience.',
+      value: consent?.analytics ?? false,
+    },
+    {
+      key: 'marketing' as const,
+      label: 'Marketing Communications',
+      description: 'Receive product updates, tips, and promotional content via email.',
+      value: consent?.marketing ?? false,
+    },
+    {
+      key: 'ai_monitoring' as const,
+      label: 'AI Monitoring',
+      description: 'Allow AI features to monitor and optimize your workflow.',
+      value: consent?.ai_monitoring ?? false,
+    },
+    {
+      key: 'skill_tracking' as const,
+      label: 'Skill Tracking',
+      description: 'Allow the system to track and analyze your skill development.',
+      value: consent?.skill_tracking ?? false,
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Privacy & Consent</CardTitle>
+          <CardDescription>Control how your data is collected and used</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {consentItems.map((item) => (
+            <div key={item.key} className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{item.label}</p>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
+              </div>
+              <Switch
+                checked={item.value}
+                onCheckedChange={(checked) =>
+                  updateConsentMutation.mutate({ [item.key]: checked })
+                }
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Active Sessions Section
+function SessionsSection() {
+  const { data: sessions, isLoading, refetch } = useQuery({
+    queryKey: queryKeys.auth.sessions,
+    queryFn: () => authService.getSessions(),
+  });
+
+  const logoutAllMutation = useMutation({
+    mutationFn: () => authService.logoutAll(),
+    onSuccess: () => {
+      toast.success('All other sessions have been logged out');
+      refetch();
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  const sessionList = Array.isArray(sessions) ? sessions : [];
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Active Sessions</CardTitle>
+              <CardDescription>Manage devices where you're logged in</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-destructive"
+              onClick={() => logoutAllMutation.mutate()}
+              disabled={logoutAllMutation.isPending}
+            >
+              {logoutAllMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <LogOut className="w-4 h-4" />
+              )}
+              Log Out All Others
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : sessionList.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No other active sessions</p>
+          ) : (
+            <div className="space-y-3">
+              {sessionList.map((session, index) => (
+                <div
+                  key={session.id ?? index}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      {session.device_info?.toLowerCase().includes('mobile') ? (
+                        <Smartphone className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <Globe className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{session.device_info ?? session.user_agent ?? 'Unknown Device'}</p>
+                        {session.is_current && (
+                          <Badge variant="secondary" className="text-[10px]">Current</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {session.ip_address ?? 'Unknown IP'}
+                        {session.last_activity && ` · Last active ${new Date(session.last_activity).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <DashboardLayout>
@@ -506,7 +686,7 @@ export default function SettingsPage() {
 
         {/* Settings Tabs */}
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid grid-cols-2 lg:grid-cols-4 w-full lg:w-auto">
+          <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full lg:w-auto">
             <TabsTrigger value="profile" className="gap-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Profile</span>
@@ -522,6 +702,14 @@ export default function SettingsPage() {
             <TabsTrigger value="security" className="gap-2">
               <Shield className="w-4 h-4" />
               <span className="hidden sm:inline">Security</span>
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="gap-2">
+              <Fingerprint className="w-4 h-4" />
+              <span className="hidden sm:inline">Privacy</span>
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="gap-2">
+              <Globe className="w-4 h-4" />
+              <span className="hidden sm:inline">Sessions</span>
             </TabsTrigger>
           </TabsList>
 
@@ -539,6 +727,14 @@ export default function SettingsPage() {
 
           <TabsContent value="security">
             <SecuritySection />
+          </TabsContent>
+
+          <TabsContent value="privacy">
+            <PrivacySection />
+          </TabsContent>
+
+          <TabsContent value="sessions">
+            <SessionsSection />
           </TabsContent>
         </Tabs>
       </div>

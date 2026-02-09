@@ -16,13 +16,11 @@ import {
   Edit3,
   Power,
   CheckCircle2,
-  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -53,53 +51,6 @@ interface Workflow {
   successRate: number;
 }
 
-// Mock workflows
-const mockWorkflows: Workflow[] = [
-  {
-    id: '1',
-    name: 'New Task Notification',
-    description: 'Send Slack notification when a new task is created',
-    status: 'active',
-    trigger: 'Task Created',
-    actions: 2,
-    lastRun: '2 min ago',
-    runsCount: 1247,
-    successRate: 99.8,
-  },
-  {
-    id: '2',
-    name: 'Daily Standup Reminder',
-    description: 'Remind team members to update their tasks',
-    status: 'active',
-    trigger: 'Schedule (Daily 9AM)',
-    actions: 3,
-    lastRun: '5 hours ago',
-    runsCount: 89,
-    successRate: 100,
-  },
-  {
-    id: '3',
-    name: 'Overdue Task Escalation',
-    description: 'Escalate overdue tasks to managers',
-    status: 'paused',
-    trigger: 'Task Overdue',
-    actions: 4,
-    lastRun: '2 days ago',
-    runsCount: 56,
-    successRate: 94.6,
-  },
-  {
-    id: '4',
-    name: 'Sprint Completion Report',
-    description: 'Generate and email sprint report',
-    status: 'active',
-    trigger: 'Sprint End',
-    actions: 5,
-    lastRun: '1 week ago',
-    runsCount: 12,
-    successRate: 100,
-  },
-];
 
 // Trigger types
 const triggerTypes = [
@@ -352,7 +303,7 @@ export default function AutomationPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'paused'>('all');
 
   // Fetch real data from API
-  const { data: agents, isLoading: agentsLoading } = useQuery({
+  const { data: agents } = useQuery({
     queryKey: queryKeys.automation.agents(),
     queryFn: () => automationService.getAgents(),
   });
@@ -362,7 +313,7 @@ export default function AutomationPage() {
     queryFn: () => automationService.getROI(),
   });
 
-  const { data: patterns } = useQuery({
+  useQuery({
     queryKey: queryKeys.automation.patterns(),
     queryFn: () => automationService.getPatterns(),
   });
@@ -384,10 +335,7 @@ export default function AutomationPage() {
       : 100,
   }));
 
-  // Also add mock data if no agents exist yet, so the page isn't empty
-  const allWorkflows = workflows.length > 0 ? workflows : mockWorkflows;
-
-  const filteredWorkflows = allWorkflows.filter((w) =>
+  const filteredWorkflows = workflows.filter((w) =>
     filter === 'all' ? true : w.status === filter
   );
 
