@@ -431,12 +431,13 @@ What would you like to work on?"""
         entities: Dict[str, Any],
         context: AgentContext
     ) -> Dict[str, Any]:
-        """Handle general queries"""
+        """Handle general queries using AI"""
         message = self._get_user_message(context) or ""
 
-        # Try to provide helpful response based on context
+        ai_response = await self._generate_ai_response(message, context)
+
         return {
-            "text": self._generate_general_response(message, context),
+            "text": ai_response,
             "actions": [{"type": "general_response"}],
             "suggestions": [
                 "Show my tasks",
@@ -445,14 +446,46 @@ What would you like to work on?"""
             ],
         }
 
-    def _generate_general_response(
+    async def _generate_ai_response(
         self,
         message: str,
         context: AgentContext
     ) -> str:
-        """Generate response for general queries"""
-        # Simple response generation
-        return f"""I'm not sure I understood that. Here's what I can help you with:
+        """Generate response using AI provider"""
+        from app.services.ai_service import get_ai_service
+
+        ai_service = get_ai_service()
+
+        # Build conversation history for context
+        history = ""
+        if context.conversation_history:
+            recent = context.conversation_history[-6:]  # Last 6 messages for context
+            for msg in recent:
+                role = "User" if msg.role == MessageRole.USER else "Assistant"
+                history += f"{role}: {msg.content}\n"
+
+        system_prompt = """You are TaskPulse AI, a helpful project management assistant embedded in a task management application.
+You help users with their tasks, productivity, and work questions.
+Keep responses concise (2-4 sentences) and actionable.
+You can help with: viewing tasks, creating tasks, getting unblocked, performance feedback, and general work advice.
+If the user asks about something outside your scope, politely redirect them to task/work-related topics."""
+
+        prompt = message
+        if history:
+            prompt = f"Conversation so far:\n{history}\nUser: {message}\n\nRespond helpfully:"
+
+        try:
+            response = await ai_service.generate(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                use_cache=False,
+                temperature=0.7,
+                max_tokens=500
+            )
+            return response.content
+        except Exception as e:
+            logger.warning(f"AI generation failed, using fallback: {e}")
+            return f"""I can help you with many things! Here's what I can do:
 
 - **"my tasks"** - View your active tasks
 - **"what should I work on"** - Get recommendations

@@ -370,6 +370,7 @@ class AgentOrchestrator:
                 success=False,
                 agent_name="orchestrator",
                 event_id="",
+                message="I'm sorry, the chat service is temporarily unavailable.",
                 error="No chat agent available"
             )
 
@@ -622,12 +623,14 @@ async def init_orchestrator() -> AgentOrchestrator:
 
     # Register default agents (lazy import to avoid circular deps)
     try:
+        from .conversation.chat_agent import ChatAgent
         from .unblock_agent import UnblockAgent
         from .decomposer_agent import DecomposerAgent
         from .predictor_agent import PredictorAgent
         from .skill_matcher_agent import SkillMatcherAgent
         from .coach_agent import CoachAgent
 
+        orchestrator.register(ChatAgent)
         orchestrator.register(UnblockAgent)
         orchestrator.register(DecomposerAgent)
         orchestrator.register(PredictorAgent)

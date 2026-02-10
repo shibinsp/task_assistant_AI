@@ -51,10 +51,13 @@ class Settings(BaseSettings):
     CORS_ALLOW_HEADERS: list[str] = ["*"]
 
     # ==================== AI Configuration ====================
-    AI_PROVIDER: Literal["mock", "openai", "anthropic", "mistral"] = "mock"
+    AI_PROVIDER: Literal["mock", "openai", "anthropic", "mistral", "kimi"] = "mock"
     OPENAI_API_KEY: str = ""
     ANTHROPIC_API_KEY: str = ""
     MISTRAL_API_KEY: str = ""
+    KIMI_API_KEY: str = ""
+    KIMI_MODEL: str = "moonshot-v1-8k"
+    KIMI_BASE_URL: str = "https://api.moonshot.cn/v1"
     AI_MODEL: str = "gpt-4"
     MISTRAL_MODEL: str = "mistral-large-latest"
     AI_MAX_TOKENS: int = 4096

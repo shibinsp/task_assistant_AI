@@ -110,7 +110,7 @@ export default function Dashboard() {
   }, []);
 
   // Fetch dashboard metrics
-  const { data: metrics, isLoading: metricsLoading, error: metricsError } = useQuery({
+  const { data: metrics, isLoading: metricsLoading, error: metricsError, refetch: refetchMetrics } = useQuery({
     queryKey: queryKeys.dashboard.metrics(),
     queryFn: () => dashboardService.getMetrics(),
   });
@@ -182,7 +182,7 @@ export default function Dashboard() {
             <AlertTriangle className="w-12 h-12 text-amber-500" />
             <h2 className="text-lg font-semibold">Failed to load dashboard</h2>
             <p className="text-muted-foreground">{(metricsError as Error).message}</p>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
+            <Button onClick={() => refetchMetrics()}>Retry</Button>
           </div>
         </Card>
       </DashboardLayout>
