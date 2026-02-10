@@ -21,6 +21,7 @@ class AIProvider(str, Enum):
     ANTHROPIC = "anthropic"
     MISTRAL = "mistral"
     KIMI = "kimi"
+    OLLAMA = "ollama"
 
 
 @dataclass
@@ -562,6 +563,161 @@ What skills are required for this task?"""
             return MockAIProvider().SKILL_SUGGESTIONS
 
 
+class OllamaAIProvider:
+    """Ollama AI provider (OpenAI-compatible local API)."""
+
+    def __init__(self):
+        self.base_url = settings.OLLAMA_BASE_URL
+        self.model = settings.OLLAMA_MODEL
+        self.provider = AIProvider.OLLAMA.value
+
+    async def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1000
+    ) -> AIResponse:
+        """Generate response using Ollama."""
+        import httpx
+        import time
+
+        start_time = time.time()
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/chat/completions",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens
+                },
+                timeout=120.0
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        content = data["choices"][0]["message"]["content"]
+        tokens_used = data.get("usage", {}).get("total_tokens", 0)
+        processing_time = int((time.time() - start_time) * 1000)
+
+        return AIResponse(
+            content=content,
+            model=self.model,
+            provider=self.provider,
+            tokens_used=tokens_used,
+            processing_time_ms=processing_time
+        )
+
+    async def decompose_task(
+        self,
+        title: str,
+        description: str,
+        goal: Optional[str] = None,
+        max_subtasks: int = 10
+    ) -> Dict[str, Any]:
+        """Decompose a task into subtasks using Ollama."""
+        system_prompt = """You are a project management AI assistant.
+Analyze the given task and break it down into subtasks.
+Return a JSON object with the following structure:
+{
+    "subtasks": [
+        {"title": "string", "description": "string", "estimated_hours": number, "skills_required": ["string"], "order": number}
+    ],
+    "total_estimated_hours": number,
+    "complexity_score": number (0-1),
+    "risk_factors": ["string"],
+    "recommendations": ["string"]
+}
+Return ONLY valid JSON, no additional text."""
+
+        prompt = f"""Task Title: {title}
+Description: {description}
+{f'Goal: {goal}' if goal else ''}
+
+Break this task into up to {max_subtasks} subtasks."""
+
+        response = await self.generate(prompt, system_prompt, temperature=0.3)
+
+        try:
+            return json.loads(response.content)
+        except json.JSONDecodeError:
+            return MockAIProvider().DECOMPOSITION_TEMPLATES[0]
+
+    async def get_unblock_suggestion(
+        self,
+        task_title: str,
+        task_description: str,
+        blocker_type: str,
+        blocker_description: str,
+        user_skill_level: str = "intermediate"
+    ) -> Dict[str, Any]:
+        """Get AI suggestion to unblock a task using Ollama."""
+        detail_map = {
+            "junior": "very detailed with step-by-step explanations",
+            "intermediate": "moderately detailed",
+            "senior": "concise and to the point"
+        }
+        detail_level = detail_map.get(user_skill_level, "moderately detailed")
+
+        system_prompt = f"""You are a helpful technical assistant.
+Provide suggestions to help unblock a task. Be {detail_level}.
+Return a JSON object with:
+{{
+    "suggestion": "string with actionable advice",
+    "confidence": number (0-1),
+    "sources": ["internal_docs", "documentation", etc],
+    "escalation_recommended": boolean
+}}
+Return ONLY valid JSON."""
+
+        prompt = f"""Task: {task_title}
+Description: {task_description}
+Blocker Type: {blocker_type}
+Blocker Description: {blocker_description}
+
+Provide a suggestion to help unblock this task."""
+
+        response = await self.generate(prompt, system_prompt, temperature=0.5)
+
+        try:
+            result = json.loads(response.content)
+            result["detail_level"] = user_skill_level
+            return result
+        except json.JSONDecodeError:
+            return MockAIProvider().UNBLOCK_SUGGESTIONS[0]
+
+    async def infer_skills(
+        self,
+        task_title: str,
+        task_description: str
+    ) -> List[Dict[str, Any]]:
+        """Infer skills from task using Ollama."""
+        system_prompt = """Analyze the task and identify required skills.
+Return a JSON array of skills:
+[{"skill": "string", "confidence": number (0-1)}]
+Return ONLY valid JSON array."""
+
+        prompt = f"""Task: {task_title}
+Description: {task_description}
+
+What skills are required for this task?"""
+
+        response = await self.generate(prompt, system_prompt, temperature=0.3)
+
+        try:
+            return json.loads(response.content)
+        except json.JSONDecodeError:
+            return MockAIProvider().SKILL_SUGGESTIONS
+
+
 class AIService:
     """Main AI service with provider abstraction and caching."""
 
@@ -573,7 +729,9 @@ class AIService:
         """Initialize the appropriate AI provider."""
         provider = settings.AI_PROVIDER.lower()
 
-        if provider == AIProvider.KIMI.value and settings.KIMI_API_KEY:
+        if provider == AIProvider.OLLAMA.value:
+            self.provider = OllamaAIProvider()
+        elif provider == AIProvider.KIMI.value and settings.KIMI_API_KEY:
             self.provider = KimiAIProvider()
         elif provider == AIProvider.MISTRAL.value and settings.MISTRAL_API_KEY:
             self.provider = MistralAIProvider()
