@@ -1,6 +1,6 @@
 """
 TaskPulse - AI Assistant - Automation API
-Pattern detection and AI agent management
+Pattern detection, AI agent management, and execution engine
 """
 
 from typing import Optional, List
@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime
-import random
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -18,14 +17,15 @@ from app.models.automation import (
 )
 from app.api.v1.dependencies import get_current_active_user, require_roles, get_pagination, PaginationParams
 from app.core.permissions import Permission, has_permission
-from app.core.exceptions import NotFoundException, ForbiddenException
+from app.core.exceptions import NotFoundException, ForbiddenException, ValidationException
 from app.utils.helpers import generate_uuid
 from pydantic import BaseModel, Field
 
 router = APIRouter()
 
 
-# Schemas
+# ==================== Schemas ====================
+
 class PatternResponse(BaseModel):
     id: str
     name: str
@@ -72,13 +72,20 @@ class AgentStatusUpdate(BaseModel):
     status: AgentStatus
 
 
-class ShadowReport(BaseModel):
+class ManualTriggerRequest(BaseModel):
+    trigger_data: dict = Field(default_factory=dict)
+
+
+class AgentRunResponse(BaseModel):
+    id: str
     agent_id: str
-    shadow_period_days: int
-    total_runs: int
-    match_rate: float
-    mismatches: List[dict]
-    recommendation: str
+    status: str
+    started_at: datetime
+    completed_at: Optional[datetime]
+    execution_time_ms: Optional[int]
+    is_shadow: bool
+    output: dict
+    error_message: Optional[str]
 
 
 class ROIDashboard(BaseModel):
@@ -90,7 +97,8 @@ class ROIDashboard(BaseModel):
     patterns_implemented: int
 
 
-# Endpoints
+# ==================== Pattern Endpoints ====================
+
 @router.get(
     "/patterns",
     response_model=List[PatternResponse],
@@ -162,6 +170,8 @@ async def accept_pattern(
     )
 
 
+# ==================== Agent CRUD Endpoints ====================
+
 @router.post(
     "/agents",
     response_model=AgentResponse,
@@ -188,7 +198,7 @@ async def create_agent(
         created_by=current_user.id,
         status=AgentStatus.CREATED
     )
-    agent.config_json = str(agent_data.config)
+    agent.config = agent_data.config
 
     db.add(agent)
     await db.flush()
@@ -293,13 +303,21 @@ async def update_agent_status(
     if status_data.status == AgentStatus.SHADOW and old_status != AgentStatus.SHADOW:
         agent.shadow_started_at = datetime.utcnow()
 
-    # Track approval for live
+    # Track approval and live start
     if status_data.status == AgentStatus.LIVE:
         agent.approved_by = current_user.id
         agent.approved_at = datetime.utcnow()
+        agent.live_started_at = datetime.utcnow()
 
     await db.flush()
     await db.refresh(agent)
+
+    # Register/unregister cron jobs based on status change
+    from app.services.automation_scheduler import register_agent_cron, unregister_agent_cron
+    if status_data.status in (AgentStatus.SHADOW, AgentStatus.LIVE):
+        await register_agent_cron(agent)
+    elif status_data.status in (AgentStatus.PAUSED, AgentStatus.RETIRED):
+        await unregister_agent_cron(agent.id)
 
     return AgentResponse(
         id=agent.id, name=agent.name, description=agent.description,
@@ -311,17 +329,25 @@ async def update_agent_status(
     )
 
 
-@router.get(
-    "/agents/{agent_id}/shadow-report",
-    response_model=ShadowReport,
-    summary="Get shadow mode report"
+# ==================== Execution Endpoints ====================
+
+@router.post(
+    "/agents/{agent_id}/trigger",
+    response_model=AgentRunResponse,
+    summary="Manually trigger an agent"
 )
-async def get_shadow_report(
+async def trigger_agent(
     agent_id: str,
-    current_user: User = Depends(get_current_active_user),
+    trigger_request: ManualTriggerRequest,
+    current_user: User = Depends(require_roles(
+        UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.MANAGER
+    )),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get shadow mode validation report."""
+    """Manually trigger an automation agent execution."""
+    if not has_permission(current_user.role, Permission.AUTOMATION_MANAGE_AGENTS):
+        raise ForbiddenException("Not authorized")
+
     result = await db.execute(
         select(AIAgent).where(AIAgent.id == agent_id, AIAgent.org_id == current_user.org_id)
     )
@@ -329,20 +355,105 @@ async def get_shadow_report(
     if not agent:
         raise NotFoundException("Agent", agent_id)
 
-    # Mock shadow report
-    match_rate = agent.shadow_match_rate or random.uniform(0.85, 0.98)
-    return ShadowReport(
-        agent_id=agent_id,
-        shadow_period_days=14,
-        total_runs=agent.shadow_runs or 50,
-        match_rate=match_rate,
-        mismatches=[
-            {"run_id": "r1", "reason": "Different output format", "severity": "low"},
-            {"run_id": "r2", "reason": "Timing difference", "severity": "low"}
-        ],
-        recommendation="Ready for supervised mode" if match_rate > 0.9 else "Continue shadow mode"
+    if agent.status not in (AgentStatus.LIVE, AgentStatus.SHADOW, AgentStatus.SUPERVISED):
+        raise ValidationException(
+            f"Agent must be in LIVE, SHADOW, or SUPERVISED status to trigger. Current: {agent.status.value}"
+        )
+
+    from app.services.automation_executor import AutomationExecutor
+    executor = AutomationExecutor(db)
+
+    trigger_data = {
+        "trigger_type": "manual",
+        "triggered_by": current_user.id,
+        "triggered_at": datetime.utcnow().isoformat(),
+        **trigger_request.trigger_data,
+    }
+
+    is_shadow = (agent.status == AgentStatus.SHADOW)
+    run = await executor.execute_agent(agent, trigger_data, is_shadow=is_shadow)
+
+    return AgentRunResponse(
+        id=run.id,
+        agent_id=run.agent_id,
+        status=run.status,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        execution_time_ms=run.execution_time_ms,
+        is_shadow=run.is_shadow,
+        output=run.output_data,
+        error_message=run.error_message,
     )
 
+
+@router.get(
+    "/agents/{agent_id}/runs",
+    response_model=List[AgentRunResponse],
+    summary="Get agent execution history"
+)
+async def get_agent_runs(
+    agent_id: str,
+    is_shadow: Optional[bool] = Query(None),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    limit: int = Query(50, le=100),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get execution history for an agent."""
+    if not has_permission(current_user.role, Permission.AUTOMATION_VIEW):
+        raise ForbiddenException("Not authorized")
+
+    # Verify agent exists and belongs to org
+    agent_result = await db.execute(
+        select(AIAgent).where(AIAgent.id == agent_id, AIAgent.org_id == current_user.org_id)
+    )
+    if not agent_result.scalar_one_or_none():
+        raise NotFoundException("Agent", agent_id)
+
+    query = select(AgentRun).where(AgentRun.agent_id == agent_id)
+
+    if is_shadow is not None:
+        query = query.where(AgentRun.is_shadow == is_shadow)
+    if status_filter:
+        query = query.where(AgentRun.status == status_filter)
+
+    query = query.order_by(AgentRun.started_at.desc()).offset(offset).limit(limit)
+    result = await db.execute(query)
+    runs = result.scalars().all()
+
+    return [AgentRunResponse(
+        id=r.id,
+        agent_id=r.agent_id,
+        status=r.status,
+        started_at=r.started_at,
+        completed_at=r.completed_at,
+        execution_time_ms=r.execution_time_ms,
+        is_shadow=r.is_shadow,
+        output=r.output_data,
+        error_message=r.error_message,
+    ) for r in runs]
+
+
+@router.get(
+    "/agents/{agent_id}/shadow-report",
+    summary="Get shadow mode report"
+)
+async def get_shadow_report(
+    agent_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get shadow mode validation report from real execution data."""
+    from app.services.automation_service import AutomationService
+    service = AutomationService(db)
+    report = await service.get_shadow_report(agent_id, current_user.org_id)
+    if "error" in report:
+        raise NotFoundException("Agent", agent_id)
+    return report
+
+
+# ==================== ROI Dashboard ====================
 
 @router.get(
     "/roi",
@@ -357,7 +468,6 @@ async def get_roi_dashboard(
     if not has_permission(current_user.role, Permission.AUTOMATION_VIEW):
         raise ForbiddenException("Not authorized")
 
-    # Aggregate stats
     agent_count = await db.execute(
         select(func.count()).select_from(AIAgent).where(AIAgent.org_id == current_user.org_id)
     )
@@ -395,7 +505,7 @@ async def get_roi_dashboard(
         total_agents=total_agents,
         active_agents=active_agents,
         total_hours_saved=total_hours,
-        total_cost_savings=total_hours * 50,  # Mock hourly rate
+        total_cost_savings=total_hours * 50,
         patterns_detected=patterns_detected,
         patterns_implemented=patterns_implemented
     )

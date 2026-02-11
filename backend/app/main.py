@@ -50,10 +50,27 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Agent orchestrator initialization failed: {e}")
 
+    # Initialize automation scheduler
+    logger.info("Initializing automation scheduler...")
+    try:
+        from app.services.automation_scheduler import init_scheduler
+        await init_scheduler()
+        logger.info("Automation scheduler initialized")
+    except Exception as e:
+        logger.warning(f"Automation scheduler initialization failed: {e}")
+
     yield
 
     # Shutdown
     logger.info("Shutting down...")
+
+    # Shutdown automation scheduler
+    try:
+        from app.services.automation_scheduler import shutdown_scheduler
+        await shutdown_scheduler()
+        logger.info("Automation scheduler shut down")
+    except Exception as e:
+        logger.warning(f"Automation scheduler shutdown failed: {e}")
 
     # Shutdown agent orchestrator
     try:

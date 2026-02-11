@@ -137,13 +137,9 @@ class AutomationService:
             org_id=org_id,
             name=name,
             description=description,
-            created_by=created_by
         )
-        pattern.trigger_conditions = trigger_conditions
-        pattern.automation_steps = automation_steps
-
-        # Calculate readiness score
-        pattern.readiness_score = self._calculate_readiness(trigger_conditions, automation_steps)
+        pattern.triggers = trigger_conditions
+        pattern.actions = automation_steps
 
         self.db.add(pattern)
         await self.db.flush()
@@ -331,11 +327,11 @@ class AutomationService:
             id=generate_uuid(),
             org_id=org_id,
             agent_id=agent_id,
-            success=success,
+            status="success" if success else "failed",
             execution_time_ms=execution_time_ms,
-            is_shadow_run=is_shadow
+            is_shadow=is_shadow
         )
-        run.trigger_data = trigger_data
+        run.input_data = trigger_data
         run.output_data = output_data
 
         self.db.add(run)
@@ -367,7 +363,7 @@ class AutomationService:
         result = await self.db.execute(
             select(AgentRun).where(
                 AgentRun.agent_id == agent_id,
-                AgentRun.is_shadow_run == True
+                AgentRun.is_shadow == True
             ).order_by(AgentRun.created_at.desc()).limit(100)
         )
         shadow_runs = result.scalars().all()
@@ -381,7 +377,7 @@ class AutomationService:
             }
 
         total_runs = len(shadow_runs)
-        successful = sum(1 for r in shadow_runs if r.success)
+        successful = sum(1 for r in shadow_runs if r.status == "success")
         match_rate = successful / total_runs if total_runs > 0 else 0
 
         # Calculate shadow period
@@ -408,7 +404,7 @@ class AutomationService:
             "recent_runs": [
                 {
                     "id": r.id,
-                    "success": r.success,
+                    "success": r.status == "success",
                     "execution_time_ms": r.execution_time_ms,
                     "created_at": r.created_at.isoformat()
                 } for r in shadow_runs[:10]
@@ -437,14 +433,14 @@ class AutomationService:
             select(AgentRun).where(
                 AgentRun.org_id == org_id,
                 AgentRun.created_at >= cutoff,
-                AgentRun.is_shadow_run == False
+                AgentRun.is_shadow == False
             )
         )
         runs = result.scalars().all()
 
         # Calculate metrics
         total_runs = len(runs)
-        successful_runs = sum(1 for r in runs if r.success)
+        successful_runs = sum(1 for r in runs if r.status == "success")
 
         # Estimate time saved (assume 15 min per automated task)
         estimated_hours_saved = (successful_runs * 15) / 60

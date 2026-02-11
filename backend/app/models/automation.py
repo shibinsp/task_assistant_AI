@@ -75,6 +75,26 @@ class AutomationPattern(Base):
         import json
         self.automation_recipe_json = json.dumps(value)
 
+    @property
+    def triggers(self):
+        import json
+        return json.loads(self.triggers_json or "[]")
+
+    @triggers.setter
+    def triggers(self, value):
+        import json
+        self.triggers_json = json.dumps(value)
+
+    @property
+    def actions(self):
+        import json
+        return json.loads(self.actions_json or "[]")
+
+    @actions.setter
+    def actions(self, value):
+        import json
+        self.actions_json = json.dumps(value)
+
 
 class AIAgent(Base):
     """AI automation agent."""
@@ -102,6 +122,7 @@ class AIAgent(Base):
     successful_runs = Column(Integer, default=0)
     hours_saved_total = Column(Float, default=0)
     last_run_at = Column(DateTime, nullable=True)
+    live_started_at = Column(DateTime, nullable=True)
 
     # Ownership
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
@@ -112,6 +133,26 @@ class AIAgent(Base):
     pattern = relationship("AutomationPattern", backref="agents")
     creator = relationship("User", foreign_keys=[created_by], backref="created_agents")
     approver = relationship("User", foreign_keys=[approved_by], backref="approved_agents")
+
+    @property
+    def config(self):
+        import json
+        return json.loads(self.config_json or "{}")
+
+    @config.setter
+    def config(self, value):
+        import json
+        self.config_json = json.dumps(value)
+
+    @property
+    def permissions(self):
+        import json
+        return json.loads(self.permissions_json or "[]")
+
+    @permissions.setter
+    def permissions(self, value):
+        import json
+        self.permissions_json = json.dumps(value)
 
 
 class AgentRun(Base):
@@ -125,6 +166,7 @@ class AgentRun(Base):
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
     status = Column(String(50), default="running")  # running, success, failed
+    execution_time_ms = Column(Integer, nullable=True)
 
     # Results
     input_data_json = Column(Text, default="{}")
@@ -138,3 +180,33 @@ class AgentRun(Base):
 
     agent = relationship("AIAgent", backref="runs")
     organization = relationship("Organization", backref="agent_runs")
+
+    @property
+    def input_data(self):
+        import json
+        return json.loads(self.input_data_json or "{}")
+
+    @input_data.setter
+    def input_data(self, value):
+        import json
+        self.input_data_json = json.dumps(value)
+
+    @property
+    def output_data(self):
+        import json
+        return json.loads(self.output_data_json or "{}")
+
+    @output_data.setter
+    def output_data(self, value):
+        import json
+        self.output_data_json = json.dumps(value)
+
+    @property
+    def human_action(self):
+        import json
+        return json.loads(self.human_action_json or "null")
+
+    @human_action.setter
+    def human_action(self, value):
+        import json
+        self.human_action_json = json.dumps(value)

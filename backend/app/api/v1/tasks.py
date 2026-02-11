@@ -3,6 +3,7 @@ TaskPulse - AI Assistant - Tasks API
 Endpoints for task management
 """
 
+import asyncio
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,24 @@ def get_task_service(db: AsyncSession = Depends(get_db)) -> TaskService:
     return TaskService(db)
 
 
+async def _fire_automation_event(event_type_str: str, event_data: dict):
+    """Fire an automation event in the background (non-blocking)."""
+    try:
+        from app.services.automation_event_bridge import handle_automation_event
+        from app.agents.base import EventType
+        event_map = {
+            "task_created": EventType.TASK_CREATED,
+            "task_completed": EventType.TASK_COMPLETED,
+            "task_blocked": EventType.TASK_BLOCKED,
+            "task_assigned": EventType.TASK_ASSIGNED,
+        }
+        et = event_map.get(event_type_str)
+        if et:
+            asyncio.create_task(handle_automation_event(et, event_data))
+    except Exception:
+        pass  # Don't let automation failures affect the main request
+
+
 # ==================== Task CRUD ====================
 
 @router.post(
@@ -56,6 +75,12 @@ async def create_task(
     task = await service.create_task(
         task_data, current_user.org_id, current_user.id
     )
+
+    await _fire_automation_event("task_created", {
+        "task_id": task.id, "title": task.title,
+        "priority": task.priority.value if task.priority else "medium",
+        "org_id": current_user.org_id,
+    })
 
     return TaskResponse(
         **task.__dict__,
@@ -283,6 +308,17 @@ async def update_task_status(
         task_id, current_user.org_id, status_data, current_user.id
     )
 
+    # Fire automation events for specific status changes
+    if status_data.status == TaskStatus.DONE:
+        await _fire_automation_event("task_completed", {
+            "task_id": task.id, "title": task.title, "org_id": current_user.org_id,
+        })
+    elif status_data.status == TaskStatus.BLOCKED:
+        await _fire_automation_event("task_blocked", {
+            "task_id": task.id, "title": task.title, "org_id": current_user.org_id,
+            "blocker_type": status_data.blocker_type.value if status_data.blocker_type else None,
+        })
+
     return TaskResponse(
         **task.__dict__,
         tools=task.tools,
@@ -334,6 +370,12 @@ async def assign_task(
     task = await service.assign_task(
         task_id, current_user.org_id, assignee_id, current_user.id
     )
+
+    if assignee_id:
+        await _fire_automation_event("task_assigned", {
+            "task_id": task.id, "title": task.title, "org_id": current_user.org_id,
+            "assigned_to": assignee_id,
+        })
 
     return TaskResponse(
         **task.__dict__,
