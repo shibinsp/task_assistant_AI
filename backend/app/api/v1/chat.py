@@ -474,6 +474,45 @@ async def websocket_chat(websocket: WebSocket):
             pass
 
 
+# ============== Push Helpers ==============
+
+async def push_system_message_to_user(
+    user_id: str,
+    content: str,
+    message_type: str = "system",
+    suggestions: Optional[List[str]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+):
+    """
+    Push a proactive message to a user's active WebSocket connections.
+    Used by the scheduler for check-in prompts and notifications.
+    """
+    connections = _active_connections.get(user_id, [])
+    if not connections:
+        return
+
+    message = {
+        "type": message_type,
+        "content": content,
+        "suggestions": suggestions or [],
+        "metadata": metadata or {},
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    dead_connections = []
+    for ws in connections:
+        try:
+            await ws.send_json(message)
+        except Exception:
+            dead_connections.append(ws)
+
+    # Clean up dead connections
+    for ws in dead_connections:
+        connections.remove(ws)
+    if not connections:
+        _active_connections.pop(user_id, None)
+
+
 # ============== Helper Functions ==============
 
 def _generate_title(conversation: Dict[str, Any]) -> str:

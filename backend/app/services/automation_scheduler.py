@@ -167,6 +167,147 @@ async def unregister_agent_cron(agent_id: str):
         logger.info(f"Removed cron job for agent {agent_id}")
 
 
+async def _create_hourly_checkins():
+    """
+    Hourly job: create check-ins for all active (IN_PROGRESS) tasks during office hours.
+    Respects per-task/user check-in config for work hours, excluded days, and max daily check-ins.
+    """
+    logger.debug("Hourly check-in job: scanning active tasks")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            from app.services.checkin_service import CheckInService
+            from app.services.notification_service import NotificationService
+            from app.models.task import Task, TaskStatus
+            from app.models.checkin import CheckIn, CheckInStatus, CheckInTrigger
+            from sqlalchemy import select, func, and_
+
+            now = datetime.utcnow()
+            current_hour = now.hour
+
+            # Get all in-progress tasks with assignees
+            result = await db.execute(
+                select(Task).where(
+                    Task.status == TaskStatus.IN_PROGRESS,
+                    Task.assigned_to.isnot(None),
+                )
+            )
+            active_tasks = result.scalars().all()
+
+            if not active_tasks:
+                logger.debug("No active tasks found for check-in creation")
+                return
+
+            checkin_service = CheckInService(db)
+            notification_service = NotificationService(db)
+            created_count = 0
+
+            for task in active_tasks:
+                try:
+                    # Get check-in config (cascade: task -> user -> team -> org)
+                    config = await checkin_service.get_config_for_task(task.id, task.org_id)
+
+                    if not config or not config.enabled:
+                        continue
+
+                    # Check work hours
+                    if current_hour < config.work_start_hour or current_hour >= config.work_end_hour:
+                        continue
+
+                    # Check excluded days (config format: "0,6" where 0=Sunday, 6=Saturday)
+                    excluded = [int(d.strip()) for d in (config.excluded_days or "").split(",") if d.strip()]
+                    # Convert Python weekday (0=Mon..6=Sun) to config format (0=Sun..6=Sat)
+                    config_day = (now.weekday() + 1) % 7
+                    if config_day in excluded:
+                        continue
+
+                    # Check for existing pending check-in (prevent duplicates)
+                    pending_result = await db.execute(
+                        select(func.count()).select_from(CheckIn).where(
+                            and_(
+                                CheckIn.task_id == task.id,
+                                CheckIn.user_id == task.assigned_to,
+                                CheckIn.status == CheckInStatus.PENDING,
+                            )
+                        )
+                    )
+                    pending_count = pending_result.scalar() or 0
+                    if pending_count > 0:
+                        continue
+
+                    # Check max daily check-ins
+                    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                    daily_result = await db.execute(
+                        select(func.count()).select_from(CheckIn).where(
+                            and_(
+                                CheckIn.task_id == task.id,
+                                CheckIn.user_id == task.assigned_to,
+                                CheckIn.scheduled_at >= today_start,
+                            )
+                        )
+                    )
+                    daily_count = daily_result.scalar() or 0
+                    if daily_count >= config.max_daily_checkins:
+                        continue
+
+                    # Create check-in
+                    checkin = await checkin_service.create_checkin(
+                        org_id=task.org_id,
+                        task_id=task.id,
+                        user_id=task.assigned_to,
+                        trigger=CheckInTrigger.SCHEDULED,
+                        scheduled_at=now,
+                        expires_hours=2.0,
+                    )
+
+                    # Send notification
+                    try:
+                        await notification_service.notify_checkin_due(
+                            user_id=task.assigned_to,
+                            org_id=task.org_id,
+                            task_id=task.id,
+                            task_title=task.title,
+                        )
+                    except Exception as e:
+                        logger.debug(f"Notification failed for checkin: {e}")
+
+                    # Push via WebSocket
+                    try:
+                        from app.api.v1.chat import push_system_message_to_user
+                        await push_system_message_to_user(
+                            user_id=task.assigned_to,
+                            content=f"How's your progress on **{task.title}**? Let me know your status or if you need any help.",
+                            message_type="checkin_prompt",
+                            suggestions=[
+                                "I'm on track",
+                                "I'm slightly behind",
+                                "I'm blocked - need help",
+                                "I completed it",
+                            ],
+                            metadata={
+                                "checkin_id": checkin.id,
+                                "task_id": task.id,
+                                "task_title": task.title,
+                            },
+                        )
+                    except Exception as e:
+                        logger.debug(f"WebSocket push failed: {e}")
+
+                    created_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error creating check-in for task {task.id}: {e}")
+
+            await db.commit()
+
+            if created_count > 0:
+                logger.info(f"Hourly check-in job: created {created_count} check-ins")
+
+        except Exception as e:
+            logger.error(f"Hourly check-in job failed: {e}")
+            await db.rollback()
+
+
 async def init_scheduler() -> AsyncIOScheduler:
     """
     Initialize and start the APScheduler.
@@ -182,6 +323,15 @@ async def init_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(minutes=5),
         id="automation_condition_check",
         name="Automation Condition Check",
+        replace_existing=True,
+    )
+
+    # Add hourly check-in creation job
+    _scheduler.add_job(
+        _create_hourly_checkins,
+        trigger=IntervalTrigger(hours=1),
+        id="hourly_checkin_creation",
+        name="Hourly Check-In Creation",
         replace_existing=True,
     )
 

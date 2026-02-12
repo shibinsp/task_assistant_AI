@@ -390,6 +390,20 @@ class AgentOrchestrator:
         )
         context.add_message(message, MessageRole.USER)
 
+        # Populate user and org context from DB
+        if db and user_id:
+            try:
+                from sqlalchemy import select
+                from app.models.user import User
+                from .context import UserData, OrganizationData
+                user_result = await db.execute(select(User).where(User.id == user_id))
+                user = user_result.scalar_one_or_none()
+                if user:
+                    context.user = UserData.from_model(user)
+                    context.organization = OrganizationData(id=user.org_id, name="")
+            except Exception:
+                pass  # Non-critical — ChatAgent works without it
+
         # Execute primary chat agent
         return await self._execute_agent(chat_agents[0], context)
 
