@@ -7,6 +7,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel, Field
+
 from app.database import get_db
 from app.config import settings
 from app.services.auth_service import AuthService
@@ -27,6 +29,11 @@ from app.schemas.user import (
 )
 from app.api.v1.dependencies import get_current_user, get_current_active_user
 from app.models.user import User
+
+
+class GoogleAuthRequest(BaseModel):
+    """Google OAuth login request."""
+    credential: str = Field(..., description="Google ID token from Sign In with Google")
 
 
 router = APIRouter()
@@ -111,6 +118,125 @@ async def login(
         ip_address=ip_address,
         user_agent=user_agent
     )
+
+    return {
+        "message": "Login successful",
+        "user": UserResponse.model_validate(user),
+        "tokens": tokens
+    }
+
+
+@router.post(
+    "/google",
+    response_model=dict,
+    summary="Google OAuth login",
+    description="Authenticate with Google Sign-In ID token"
+)
+async def google_login(
+    payload: GoogleAuthRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Authenticate user with a Google ID token.
+
+    - **credential**: The ID token from Google Sign-In
+
+    Creates a new account if the user doesn't exist.
+    Returns access and refresh tokens.
+    """
+    import logging
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+
+    logger = logging.getLogger(__name__)
+
+    client_id = settings.GOOGLE_CLIENT_ID
+    if not client_id:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google OAuth is not configured"
+        )
+
+    # Verify the Google ID token
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            payload.credential,
+            google_requests.Request(),
+            client_id,
+        )
+    except ValueError as e:
+        logger.warning(f"Google token verification failed: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google credential"
+        )
+
+    email = idinfo.get("email")
+    if not email or not idinfo.get("email_verified"):
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Google account email not verified"
+        )
+
+    first_name = idinfo.get("given_name", "")
+    last_name = idinfo.get("family_name", "")
+    avatar_url = idinfo.get("picture", "")
+
+    auth_service = AuthService(db)
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("User-Agent")
+
+    # Check if user already exists
+    from sqlalchemy import select
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+
+    if user:
+        # Existing user — update avatar if missing and create session
+        if avatar_url and not user.avatar_url:
+            user.avatar_url = avatar_url
+        user.is_sso_user = True
+        tokens = await auth_service._create_session(user, ip_address, user_agent)
+        user.last_login = __import__("datetime").datetime.utcnow()
+        await db.commit()
+        logger.info(f"Google login: existing user {email}")
+    else:
+        # New user — register with Google info
+        from app.models.organization import Organization
+        from app.models.user import UserRole
+        from app.core.security import generate_uuid
+
+        org = Organization(
+            id=generate_uuid(),
+            name=f"{first_name}'s Workspace",
+            slug=generate_uuid()[:8],
+        )
+        db.add(org)
+
+        user = User(
+            id=generate_uuid(),
+            org_id=org.id,
+            email=email,
+            password_hash=None,
+            is_sso_user=True,
+            first_name=first_name or email.split("@")[0],
+            last_name=last_name or "",
+            role=UserRole.ORG_ADMIN,
+            avatar_url=avatar_url,
+            is_active=True,
+            is_email_verified=True,
+        )
+        db.add(user)
+        await db.flush()
+
+        tokens = await auth_service._create_session(user, ip_address, user_agent)
+        user.last_login = __import__("datetime").datetime.utcnow()
+        await db.commit()
+        logger.info(f"Google login: new user created {email}")
 
     return {
         "message": "Login successful",

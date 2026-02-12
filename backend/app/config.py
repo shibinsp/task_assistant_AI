@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
     ALLOWED_UPLOAD_EXTENSIONS: list[str] = [".pdf", ".doc", ".docx", ".txt", ".md"]
 
+    # ==================== Google OAuth ====================
+    GOOGLE_CLIENT_ID: str = ""
+
     # ==================== Email (for notifications) ====================
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

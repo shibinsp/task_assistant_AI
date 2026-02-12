@@ -20,6 +20,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   signup: (email: string, password: string, name: string, company?: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
@@ -38,6 +39,24 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         try {
           const response = await authService.login(email, password);
+          const frontendUser = mapCurrentUserToFrontend(response.user);
+          set({
+            user: frontendUser,
+            accessToken: response.tokens.access_token,
+            refreshToken: response.tokens.refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({ isLoading: false });
+          throw error;
+        }
+      },
+
+      googleLogin: async (credential: string) => {
+        set({ isLoading: true });
+        try {
+          const response = await authService.googleLogin(credential);
           const frontendUser = mapCurrentUserToFrontend(response.user);
           set({
             user: frontendUser,

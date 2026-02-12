@@ -43,6 +43,7 @@ import { getApiErrorMessage } from '@/lib/api-client';
 
 // Accent color options
 const accentColors: { value: AccentColor; label: string; gradient: string }[] = [
+  { value: 'indigo', label: 'Indigo', gradient: 'from-indigo-500 to-violet-500' },
   { value: 'purple', label: 'Purple', gradient: 'from-violet-500 to-purple-500' },
   { value: 'blue', label: 'Blue', gradient: 'from-blue-500 to-cyan-500' },
   { value: 'cyan', label: 'Cyan', gradient: 'from-cyan-500 to-teal-500' },

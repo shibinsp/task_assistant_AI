@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -10,7 +10,6 @@ import {
   EyeOff,
   ArrowRight,
   Github,
-  Chrome,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +29,8 @@ import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
+
+const GOOGLE_CLIENT_ID = '1058266717863-6qoua6bdose1soegsvbs36ndtnbegpbm.apps.googleusercontent.com';
 
 function ForgotPasswordDialog() {
   const [email, setEmail] = useState('');
@@ -94,17 +95,52 @@ function ForgotPasswordDialog() {
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuthStore();
+  const { login, googleLogin, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false,
   });
 
+  // Load Google Identity Services script and render button
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google && googleBtnRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: googleBtnRef.current.offsetWidth,
+          text: 'signin_with',
+        });
+      }
+    };
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleGoogleResponse = async (response: { credential: string }) => {
+    try {
+      await googleLogin(response.credential);
+      toast.success('Welcome!');
+      navigate('/dashboard');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password) {
       toast.error('Please fill in all fields');
       return;
@@ -146,14 +182,11 @@ export default function LoginPage() {
           </div>
 
           {/* Social Login */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <Button variant="outline" className="gap-2">
+          <div className="mb-6 space-y-3">
+            <div ref={googleBtnRef} className="w-full flex justify-center" />
+            <Button variant="outline" className="gap-2 w-full">
               <Github className="w-4 h-4" />
               GitHub
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <Chrome className="w-4 h-4" />
-              Google
             </Button>
           </div>
 

@@ -1,19 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Sparkles, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
+import {
+  Sparkles,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
   ArrowRight,
   Github,
-  Chrome,
   Loader2,
   User,
   Building2
 } from 'lucide-react';
+
+const GOOGLE_CLIENT_ID = '1058266717863-6qoua6bdose1soegsvbs36ndtnbegpbm.apps.googleusercontent.com';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,9 +26,10 @@ import { toast } from 'sonner';
 
 export default function SignupPage() {
   const navigate = useNavigate();
-  const { signup, isLoading } = useAuthStore();
+  const { signup, googleLogin, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,6 +37,39 @@ export default function SignupPage() {
     company: '',
     agreeToTerms: false,
   });
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google && googleBtnRef.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+        });
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: googleBtnRef.current.offsetWidth,
+          text: 'signup_with',
+        });
+      }
+    };
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleGoogleResponse = async (response: { credential: string }) => {
+    try {
+      await googleLogin(response.credential);
+      toast.success('Account created!');
+      navigate('/dashboard');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,14 +142,11 @@ export default function SignupPage() {
           {/* Social Login */}
           {step === 1 && (
             <>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <Button variant="outline" className="gap-2">
+              <div className="mb-6 space-y-3">
+                <div ref={googleBtnRef} className="w-full flex justify-center" />
+                <Button variant="outline" className="gap-2 w-full">
                   <Github className="w-4 h-4" />
                   GitHub
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <Chrome className="w-4 h-4" />
-                  Google
                 </Button>
               </div>
 

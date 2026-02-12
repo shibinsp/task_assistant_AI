@@ -10,7 +10,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 262.1 83.3% 57.8%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
@@ -22,12 +22,12 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 262.1 83.3% 57.8%;
+    --ring: 239 84% 67%;
     --radius: 0.625rem;
-    
+
     /* Custom Theme Variables */
-    --accent-primary: 262.1 83.3% 57.8%;
-    --accent-secondary: 263.4 70% 50.4%;
+    --accent-primary: 239 84% 67%;
+    --accent-secondary: 244 75% 57%;
     --success: 142.1 76.2% 36.3%;
     --warning: 38 92% 50%;
     --info: 217.2 91.2% 59.8%;
@@ -51,7 +51,7 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 262.1 83.3% 57.8%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
@@ -63,7 +63,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 262.1 83.3% 57.8%;
+    --ring: 239 84% 67%;
     
     /* Dark Glassmorphism */
     --glass-bg: rgba(15, 15, 25, 0.7);

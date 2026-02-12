@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type AccentColor = 'purple' | 'blue' | 'cyan' | 'green' | 'orange' | 'pink';
+export type AccentColor = 'indigo' | 'purple' | 'blue' | 'cyan' | 'green' | 'orange' | 'pink';
 
 interface ThemeState {
   mode: ThemeMode;
@@ -15,6 +15,7 @@ interface ThemeState {
 }
 
 const accentColors: Record<AccentColor, { primary: string; secondary: string }> = {
+  indigo: { primary: '239 84% 67%', secondary: '244 75% 57%' },
   purple: { primary: '262.1 83.3% 57.8%', secondary: '263.4 70% 50.4%' },
   blue: { primary: '217.2 91.2% 59.8%', secondary: '221.2 83.2% 53.3%' },
   cyan: { primary: '189.4 94.5% 43.1%', secondary: '192.9 82.3% 31%' },
@@ -27,7 +28,7 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       mode: 'system',
-      accent: 'purple',
+      accent: 'indigo',
       reduceMotion: false,
       setMode: (mode) => {
         set({ mode });
