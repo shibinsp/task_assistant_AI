@@ -251,17 +251,53 @@ export default function AICommandCenter() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    return sessionStorage.getItem('ai_conversation_id');
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingTaskProcessed = useRef(false);
+  const conversationLoaded = useRef(false);
+
+  // Persist conversationId to sessionStorage
+  useEffect(() => {
+    if (conversationId) {
+      sessionStorage.setItem('ai_conversation_id', conversationId);
+    } else {
+      sessionStorage.removeItem('ai_conversation_id');
+    }
+  }, [conversationId]);
 
   // Fetch conversation history
   const { data: conversations, refetch: refetchConversations } = useQuery({
     queryKey: queryKeys.chat.conversations,
     queryFn: () => chatService.listConversations({ limit: 20 }),
   });
+
+  // Auto-reload last conversation on mount
+  useEffect(() => {
+    if (conversationLoaded.current) return;
+    const savedId = conversationId;
+    if (savedId) {
+      conversationLoaded.current = true;
+      chatService.getConversation(savedId).then((conv) => {
+        const loaded: Message[] = (conv.messages ?? []).map((m: any, i: number) => ({
+          id: `${savedId}-${i}`,
+          role: (m.role === 'agent' ? 'assistant' : m.role) as 'user' | 'assistant',
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+        }));
+        if (loaded.length > 0) {
+          setMessages(loaded);
+        }
+      }).catch(() => {
+        // Conversation no longer exists (backend restart), clear it
+        setConversationId(null);
+        sessionStorage.removeItem('ai_conversation_id');
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom
   useEffect(() => {
