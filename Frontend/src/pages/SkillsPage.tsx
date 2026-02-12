@@ -624,7 +624,7 @@ export default function SkillsPage() {
                     {skillGraph && (
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground justify-center">
                         <span>{skillGraph.skill_count} skills</span>
-                        <span>Avg level: {skillGraph.avg_level.toFixed(1)}</span>
+                        <span>Avg level: {(skillGraph.avg_level ?? 0).toFixed(1)}</span>
                         <span>Strongest: <span className="capitalize">{skillGraph.strongest_category}</span></span>
                       </div>
                     )}
@@ -1095,10 +1095,10 @@ export default function SkillsPage() {
                               </div>
                               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                 <span>
-                                  Org avg: {skill.org_average_level.toFixed(1)}
+                                  Org avg: {(skill.org_average_level ?? 0).toFixed(1)}
                                 </span>
                                 <span>
-                                  Industry: {skill.industry_average_level.toFixed(1)}
+                                  Industry: {(skill.industry_average_level ?? 0).toFixed(1)}
                                 </span>
                               </div>
                               {skill.aliases.length > 0 && (
@@ -1208,10 +1208,10 @@ export default function SkillsPage() {
               {velocityData && (
                 <div className="flex items-center justify-center gap-4 mt-3">
                   <span className="text-xs text-muted-foreground">
-                    Learning velocity: <span className="font-medium text-foreground">{velocityData.learning_velocity.toFixed(2)}</span>
+                    Learning velocity: <span className="font-medium text-foreground">{(velocityData.learning_velocity ?? 0).toFixed(2)}</span>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Avg improvement rate: <span className="font-medium text-foreground">{velocityData.avg_improvement_rate.toFixed(2)}</span>
+                    Avg improvement rate: <span className="font-medium text-foreground">{(velocityData.avg_improvement_rate ?? 0).toFixed(2)}</span>
                   </span>
                 </div>
               )}

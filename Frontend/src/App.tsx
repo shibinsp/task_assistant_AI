@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { Component, useEffect } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { initTheme } from './store/themeStore';
@@ -28,6 +29,41 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+// Error Boundary to catch runtime render errors
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Page crashed:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, fontFamily: 'monospace' }}>
+          <h1 style={{ color: 'red' }}>Something went wrong</h1>
+          <pre style={{ whiteSpace: 'pre-wrap', marginTop: 16 }}>
+            {this.state.error?.message}
+            {'\n\n'}
+            {this.state.error?.stack}
+          </pre>
+          <button onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: 16, padding: '8px 16px' }}>
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Protected Route Component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -42,6 +78,7 @@ function App() {
   return (
     <TooltipProvider delayDuration={100}>
       <BrowserRouter>
+        <ErrorBoundary>
         <AnimatePresence mode="wait">
           <Routes>
             {/* Public Routes */}
@@ -175,6 +212,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AnimatePresence>
+        </ErrorBoundary>
       </BrowserRouter>
       <Toaster position="bottom-right" richColors />
     </TooltipProvider>
