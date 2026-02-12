@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Plus,
   Search,
   Filter,
   MoreHorizontal,
@@ -14,10 +14,15 @@ import {
   ArrowUpDown,
   AlertTriangle,
   Loader2,
+  Sparkles,
+  Paperclip,
+  MessageSquare,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -37,22 +42,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { tasksService } from '@/services/tasks.service';
+import { chatService } from '@/services/chat.service';
 import { queryKeys } from '@/hooks/useApi';
 import { mapTaskToFrontend, mapStatusToApi, type FrontendTask, type FrontendTaskStatus } from '@/types/mappers';
-import type { ApiTaskCreate, ApiTaskPriority } from '@/types/api';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 // Priority config
-const priorityConfig = {
+const priorityConfig: Record<string, { color: string; label: string }> = {
   low: { color: 'bg-slate-500', label: 'Low' },
   medium: { color: 'bg-blue-500', label: 'Medium' },
   high: { color: 'bg-orange-500', label: 'High' },
@@ -67,81 +71,294 @@ const columns = [
   { id: 'done' as const, title: 'Done', color: 'bg-emerald-500' },
 ];
 
-// Create Task Dialog
-function CreateTaskDialog({ children }: { children: React.ReactNode }) {
-  const queryClient = useQueryClient();
+// ─── Describe Task Dialog (AI-driven) ────────────────────────────────
+function DescribeTaskDialog({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', priority: 'MEDIUM' as ApiTaskPriority });
+  const [description, setDescription] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const navigate = useNavigate();
 
-  const createMutation = useMutation({
-    mutationFn: (payload: ApiTaskCreate) => tasksService.create(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
-      toast.success('Task created');
-      setOpen(false);
-      setForm({ title: '', description: '', priority: 'MEDIUM' });
-    },
-    onError: (err) => toast.error(getApiErrorMessage(err)),
-  });
+  const handleSendToAI = () => {
+    setOpen(false);
+    navigate('/ai', {
+      state: {
+        pendingTask: {
+          description: description.trim() || undefined,
+          fileName: file?.name,
+        },
+        file: file || undefined,
+      },
+    });
+    setDescription('');
+    setFile(null);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create Task</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Describe Your Task
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label>Title</Label>
-            <Input
-              placeholder="Task title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            <Label>Describe what you need to do</Label>
+            <Textarea
+              placeholder="e.g., I need to build a REST API for user authentication with JWT tokens, set up database models, write tests..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={5}
             />
           </div>
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Input
-              placeholder="Optional description"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Priority</Label>
-            <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v as ApiTaskPriority })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LOW">Low</SelectItem>
-                <SelectItem value="MEDIUM">Medium</SelectItem>
-                <SelectItem value="HIGH">High</SelectItem>
-                <SelectItem value="CRITICAL">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Or upload a task description</Label>
+            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt,.md"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="hidden"
+                id="task-file-upload"
+              />
+              <label htmlFor="task-file-upload" className="cursor-pointer">
+                {file ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-primary">
+                    <Paperclip className="w-4 h-4" />
+                    {file.name}
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground text-xs ml-2"
+                      onClick={(e) => { e.preventDefault(); setFile(null); }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-sm">
+                    <Paperclip className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                    Click to upload PDF, DOCX, or TXT
+                  </div>
+                )}
+              </label>
+            </div>
           </div>
           <Button
-            className="w-full"
-            disabled={!form.title.trim() || createMutation.isPending}
-            onClick={() => createMutation.mutate({
-              title: form.title,
-              description: form.description || undefined,
-              priority: form.priority,
-            })}
+            className="w-full gap-2"
+            disabled={!description.trim() && !file}
+            onClick={handleSendToAI}
           >
-            {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Create Task
+            <Bot className="w-4 h-4" />
+            Send to AI Agent
           </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            The AI agent will ask you about deadlines, priorities, and create the task with subtasks.
+          </p>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-// Kanban View
-function KanbanView({ tasks, onStatusChange, onDelete }: { tasks: FrontendTask[]; onStatusChange: (id: string, status: FrontendTaskStatus) => void; onDelete: (id: string) => void }) {
+// ─── Task Detail Panel (Sheet) ───────────────────────────────────────
+function TaskDetailPanel({
+  task,
+  onClose,
+}: {
+  task: FrontendTask;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [blockerDesc, setBlockerDesc] = useState('');
+  const [showBlockerForm, setShowBlockerForm] = useState(false);
+
+  const { data: subtasks, isLoading: subtasksLoading } = useQuery({
+    queryKey: queryKeys.tasks.subtasks(task.id),
+    queryFn: () => tasksService.getSubtasks(task.id),
+  });
+
+  const { data: commentsData } = useQuery({
+    queryKey: queryKeys.tasks.comments(task.id),
+    queryFn: () => tasksService.getComments(task.id),
+  });
+  const comments = Array.isArray(commentsData) ? commentsData : (commentsData as any)?.comments ?? [];
+
+  const blockerMutation = useMutation({
+    mutationFn: () =>
+      tasksService.updateStatus(task.id, {
+        status: 'BLOCKED',
+        blocker_type: 'BUG',
+        blocker_description: blockerDesc,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      toast.success('Blocker reported — AI agent is analyzing...');
+      setBlockerDesc('');
+      setShowBlockerForm(false);
+      chatService.sendMessage({
+        message: `I'm blocked on task "${task.title}": ${blockerDesc}`,
+      });
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  const statusLabels: Record<string, string> = {
+    'todo': 'To Do', 'in-progress': 'In Progress', 'review': 'Review', 'done': 'Done',
+  };
+
+  return (
+    <Sheet open onOpenChange={() => onClose()}>
+      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>{task.title}</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-6 px-4 pb-6">
+          {task.description && (
+            <p className="text-sm text-muted-foreground">{task.description}</p>
+          )}
+          <div className="flex gap-2">
+            <Badge variant="outline">{statusLabels[task.status] ?? task.status}</Badge>
+            <Badge variant="secondary">{priorityConfig[task.priority]?.label ?? task.priority}</Badge>
+            {task.dueDate && (
+              <Badge variant="outline" className="text-xs">
+                <Calendar className="w-3 h-3 mr-1" />
+                {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </Badge>
+            )}
+          </div>
+
+          {/* Subtasks */}
+          <div>
+            <h3 className="font-medium mb-2 text-sm">Subtasks</h3>
+            {subtasksLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : subtasks && subtasks.length > 0 ? (
+              <div className="space-y-2">
+                {subtasks.map((sub: any) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{sub.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[10px]">
+                          {sub.status?.replace('_', ' ')}
+                        </Badge>
+                        {sub.estimated_hours && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />{sub.estimated_hours}h
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs text-amber-600 shrink-0"
+                      onClick={() => setShowBlockerForm(true)}
+                    >
+                      Report Issue
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No subtasks yet.</p>
+            )}
+          </div>
+
+          {/* Blocker Report Form */}
+          {showBlockerForm && (
+            <div className="space-y-3 border rounded-lg p-4 bg-amber-50 dark:bg-amber-500/5">
+              <h3 className="font-medium text-sm text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Report a Blocker
+              </h3>
+              <Textarea
+                placeholder="Describe what's blocking you... Include error messages if any."
+                value={blockerDesc}
+                onChange={(e) => setBlockerDesc(e.target.value)}
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  disabled={!blockerDesc.trim() || blockerMutation.isPending}
+                  onClick={() => blockerMutation.mutate()}
+                >
+                  {blockerMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
+                  Report & Get AI Help
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowBlockerForm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!showBlockerForm && (
+            <Button
+              variant="outline"
+              className="w-full gap-2 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-500/5"
+              onClick={() => setShowBlockerForm(true)}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Report Blocker / Issue
+            </Button>
+          )}
+
+          {/* Comments */}
+          {comments.length > 0 && (
+            <div>
+              <h3 className="font-medium mb-2 text-sm flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Comments
+              </h3>
+              <div className="space-y-2">
+                {comments.map((comment: any) => (
+                  <div key={comment.id} className="p-3 rounded-lg bg-muted text-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-xs">
+                        {comment.is_ai_generated ? (
+                          <span className="flex items-center gap-1 text-primary">
+                            <Bot className="w-3 h-3" /> AI Agent
+                          </span>
+                        ) : (
+                          comment.user_name ?? 'User'
+                        )}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-xs">{comment.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Kanban View ─────────────────────────────────────────────────────
+function KanbanView({
+  tasks, onStatusChange, onDelete, onSelect,
+}: {
+  tasks: FrontendTask[];
+  onStatusChange: (id: string, status: FrontendTaskStatus) => void;
+  onDelete: (id: string) => void;
+  onSelect: (task: FrontendTask) => void;
+}) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {columns.map((column) => {
@@ -166,7 +383,7 @@ function KanbanView({ tasks, onStatusChange, onDelete }: { tasks: FrontendTask[]
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <TaskCard task={task} onStatusChange={onStatusChange} onDelete={onDelete} />
+                    <TaskCard task={task} onStatusChange={onStatusChange} onDelete={onDelete} onSelect={onSelect} />
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -178,27 +395,42 @@ function KanbanView({ tasks, onStatusChange, onDelete }: { tasks: FrontendTask[]
   );
 }
 
-// Task Card Component
-function TaskCard({ task, onStatusChange, onDelete }: { task: FrontendTask; onStatusChange: (id: string, status: FrontendTaskStatus) => void; onDelete: (id: string) => void }) {
-  const priority = priorityConfig[task.priority];
+// ─── Task Card ───────────────────────────────────────────────────────
+function TaskCard({
+  task, onStatusChange, onDelete, onSelect,
+}: {
+  task: FrontendTask;
+  onStatusChange: (id: string, status: FrontendTaskStatus) => void;
+  onDelete: (id: string) => void;
+  onSelect: (task: FrontendTask) => void;
+}) {
+  const priority = priorityConfig[task.priority] ?? priorityConfig.medium;
   return (
-    <Card className="cursor-pointer hover:shadow-md transition-shadow group">
+    <Card
+      className="cursor-pointer hover:shadow-md transition-shadow group"
+      onClick={() => onSelect(task)}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className={`w-2 h-2 rounded-full ${priority.color} mt-1.5`} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {columns.filter((c) => c.id !== task.status).map((col) => (
-                <DropdownMenuItem key={col.id} onClick={() => onStatusChange(task.id, col.id)}>
+                <DropdownMenuItem key={col.id} onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, col.id); }}>
                   Move to {col.title}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete(task.id)}>Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}>Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -231,8 +463,15 @@ function TaskCard({ task, onStatusChange, onDelete }: { task: FrontendTask; onSt
   );
 }
 
-// List View
-function ListView({ tasks, onStatusChange: _onStatusChange, onDelete: _onDelete }: { tasks: FrontendTask[]; onStatusChange: (id: string, status: FrontendTaskStatus) => void; onDelete: (id: string) => void }) {
+// ─── List View ───────────────────────────────────────────────────────
+function ListView({
+  tasks, onStatusChange: _onStatusChange, onDelete: _onDelete, onSelect,
+}: {
+  tasks: FrontendTask[];
+  onStatusChange: (id: string, status: FrontendTaskStatus) => void;
+  onDelete: (id: string) => void;
+  onSelect: (task: FrontendTask) => void;
+}) {
   return (
     <Card>
       <div className="overflow-x-auto">
@@ -254,12 +493,16 @@ function ListView({ tasks, onStatusChange: _onStatusChange, onDelete: _onDelete 
           </thead>
           <tbody>
             {tasks.map((task) => {
-              const priority = priorityConfig[task.priority];
+              const priority = priorityConfig[task.priority] ?? priorityConfig.medium;
               const statusLabels: Record<string, string> = {
                 'todo': 'To Do', 'in-progress': 'In Progress', 'review': 'Review', 'done': 'Done',
               };
               return (
-                <tr key={task.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                <tr
+                  key={task.id}
+                  className="border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => onSelect(task)}
+                >
                   <td className="p-4">
                     <div className="flex items-center gap-2">
                       <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
@@ -307,7 +550,7 @@ function ListView({ tasks, onStatusChange: _onStatusChange, onDelete: _onDelete 
   );
 }
 
-// Timeline View
+// ─── Timeline View ───────────────────────────────────────────────────
 function TimelineView({ tasks }: { tasks: FrontendTask[] }) {
   const sortedTasks = [...tasks].filter((t) => t.dueDate).sort((a, b) =>
     new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
@@ -356,9 +599,11 @@ function TimelineView({ tasks }: { tasks: FrontendTask[] }) {
   );
 }
 
+// ─── Main Tasks Page ─────────────────────────────────────────────────
 export default function TasksPage() {
   const [view, setView] = useState<'kanban' | 'list' | 'timeline'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -409,14 +654,14 @@ export default function TasksPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold">Tasks</h1>
-            <p className="text-muted-foreground mt-1">Manage and track your team's tasks</p>
+            <p className="text-muted-foreground mt-1">Manage and track your tasks</p>
           </div>
-          <CreateTaskDialog>
+          <DescribeTaskDialog>
             <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              New Task
+              <Sparkles className="w-4 h-4" />
+              Describe Your Task
             </Button>
-          </CreateTaskDialog>
+          </DescribeTaskDialog>
         </div>
 
         {/* Controls */}
@@ -478,13 +723,21 @@ export default function TasksPage() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {view === 'kanban' && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} />}
-              {view === 'list' && <ListView tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} />}
+              {view === 'kanban' && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} onSelect={setSelectedTask} />}
+              {view === 'list' && <ListView tasks={tasks} onStatusChange={handleStatusChange} onDelete={handleDelete} onSelect={setSelectedTask} />}
               {view === 'timeline' && <TimelineView tasks={tasks} />}
             </motion.div>
           </AnimatePresence>
         )}
       </div>
+
+      {/* Task Detail Panel */}
+      {selectedTask && (
+        <TaskDetailPanel
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+        />
+      )}
     </DashboardLayout>
   );
 }

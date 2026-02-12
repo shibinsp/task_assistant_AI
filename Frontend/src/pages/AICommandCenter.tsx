@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -238,6 +239,7 @@ function MessageBubble({ message, onSuggestionClick }: { message: Message; onSug
 
 export default function AICommandCenter() {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -252,6 +254,8 @@ export default function AICommandCenter() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingTaskProcessed = useRef(false);
 
   // Fetch conversation history
   const { data: conversations, refetch: refetchConversations } = useQuery({
@@ -401,6 +405,64 @@ export default function AICommandCenter() {
         });
       });
   }, [conversationId, refetchConversations]);
+
+  // Handle file upload (Paperclip or from TasksPage navigation)
+  const handleFileUpload = useCallback(async (file: File, message?: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: message || `[Uploaded file: ${file.name}]`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setIsTyping(true);
+
+    try {
+      const data = await chatService.sendMessageWithFile(file, message, conversationId ?? undefined);
+      if (data.conversation_id) setConversationId(data.conversation_id);
+      const aiMessage: Message = {
+        id: data.conversation_id || (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.message.content,
+        timestamp: new Date(),
+        suggestions: data.suggestions?.slice(0, 3),
+        actions: data.actions?.map((a) => ({ label: a.label, action: a.action })),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      refetchConversations();
+    } catch (err) {
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `Sorry, I couldn't process the file: ${getApiErrorMessage(err)}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [conversationId, refetchConversations]);
+
+  // Handle incoming task description from TasksPage navigation
+  useEffect(() => {
+    if (pendingTaskProcessed.current) return;
+    const state = location.state as { pendingTask?: { description?: string; fileName?: string }; file?: File } | null;
+    if (!state?.pendingTask) return;
+
+    pendingTaskProcessed.current = true;
+
+    const { description, fileName } = state.pendingTask;
+    const file = state.file;
+
+    // Clear navigation state to prevent re-processing on remount
+    window.history.replaceState({}, document.title);
+
+    if (file) {
+      handleFileUpload(file, description);
+    } else if (description) {
+      sendMessageFromUI(description);
+    }
+  }, [location.state, handleFileUpload, sendMessageFromUI]);
 
   const chatMutation = useMutation({
     mutationFn: (message: string) =>
@@ -597,8 +659,28 @@ export default function AICommandCenter() {
                     onKeyDown={handleKeyDown}
                     className="pr-24"
                   />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleFileUpload(file, inputValue || undefined);
+                        setInputValue('');
+                      }
+                      e.target.value = '';
+                    }}
+                  />
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach file (PDF, DOCX, TXT, MD)"
+                    >
                       <Paperclip className="w-4 h-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8">

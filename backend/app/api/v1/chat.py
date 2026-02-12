@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -194,6 +194,61 @@ async def send_message(
             suggestions=["Show my tasks", "I need help", "What can you do?"],
             actions=[],
         )
+
+
+@router.post("/with-file", response_model=MessageResponse)
+async def send_message_with_file(
+    file: UploadFile = File(...),
+    message: str = Form(default=""),
+    conversation_id: Optional[str] = Form(default=None),
+    current_user=Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send a message with an attached file (PDF, DOCX, TXT).
+    The file content is extracted and combined with the message
+    for AI processing (e.g., task creation from a document).
+    """
+    from ...utils.file_extractor import extract_text_from_bytes, is_supported_file
+
+    if not is_supported_file(file.filename or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file type. Supported: PDF, DOCX, TXT, MD",
+        )
+
+    file_content = await file.read()
+
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Maximum 10MB.",
+        )
+
+    try:
+        extracted_text = extract_text_from_bytes(file_content, file.filename or "unknown.txt")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Could not extract text from file: {str(e)}",
+        )
+
+    combined_message = message.strip() if message else ""
+    if combined_message:
+        combined_message += f"\n\n[Attached file: {file.filename}]\n{extracted_text[:4000]}"
+    else:
+        combined_message = (
+            f"I need to create a task based on this document ({file.filename}):\n\n"
+            f"{extracted_text[:4000]}"
+        )
+
+    inner_request = MessageRequest(
+        message=combined_message,
+        conversation_id=conversation_id,
+        context={"file_name": file.filename, "file_extracted": True},
+    )
+
+    return await send_message(inner_request, current_user, db)
 
 
 @router.get("/conversations", response_model=List[ConversationInfo])

@@ -32,4 +32,22 @@ export const chatService = {
   async endConversation(conversationId: string): Promise<void> {
     await apiClient.post(`/chat/conversations/${conversationId}/end`);
   },
+
+  async sendMessageWithFile(
+    file: File,
+    message?: string,
+    conversationId?: string,
+  ): Promise<ApiChatMessageResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (message) formData.append('message', message);
+    if (conversationId) formData.append('conversation_id', conversationId);
+
+    const { data } = await apiClient.post<ApiChatMessageResponse>(
+      '/chat/with-file',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return data;
+  },
 };

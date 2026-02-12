@@ -57,6 +57,10 @@ class ChatAgent(BaseAgent):
             r"i need to (?:build|create|develop|implement|design|write|make|finish|complete|do|work on)\s+(.+?)(?:\s+by\s+|\s+before\s+|\s+deadline\s+)(.+)",
             r"(?:build|create|develop|implement|make|write|design)\s+(.+?)(?:\s+by\s+|\s+before\s+)(.+)",
             r"i(?:'m| am) working on\s+(.+?)(?:\s+deadline|\s+due|\s+by\s+)(.+)",
+            r"i need to (?:build|create|develop|implement|design|write|make|finish|complete|do|work on)\s+(.+)",
+            r"(?:create|set up|make)\s+(?:a )?task (?:for|about|based on)\s+(.+)",
+            r"\[Attached file:",
+            r"create a task based on this document",
         ],
         "checkin_response": [
             r"(?:i(?:'m| am)) on track",
@@ -125,6 +129,24 @@ class ChatAgent(BaseAgent):
             r"good afternoon",
         ],
     }
+
+    # Multi-turn conversation state for task creation
+    # Key: conversation_id, Value: dict with partial task data
+    _pending_tasks: Dict[str, Dict[str, Any]] = {}
+
+    @classmethod
+    def _get_pending_task(cls, conversation_id: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not conversation_id:
+            return None
+        return cls._pending_tasks.get(conversation_id)
+
+    @classmethod
+    def _set_pending_task(cls, conversation_id: str, data: Dict[str, Any]):
+        cls._pending_tasks[conversation_id] = data
+
+    @classmethod
+    def _clear_pending_task(cls, conversation_id: str):
+        cls._pending_tasks.pop(conversation_id, None)
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
@@ -216,9 +238,16 @@ class ChatAgent(BaseAgent):
         message: str,
         context: AgentContext
     ) -> Tuple[str, Dict[str, Any]]:
-        """Detect user intent — regex first, AI fallback for complex messages."""
+        """Detect user intent — pending task first, then regex, then AI fallback."""
         message_lower = message.lower().strip()
         entities = {"raw_message": message}
+
+        # Check if there's a pending task creation that needs a follow-up answer
+        conversation_id = context.conversation_id
+        pending = self._get_pending_task(conversation_id)
+        if pending and pending.get("awaiting_field"):
+            entities["pending_task"] = pending
+            return "task_creation_followup", entities
 
         # Check against regex patterns
         for intent, patterns in self._compiled_patterns.items():
@@ -299,6 +328,7 @@ Return ONLY the category name, nothing else."""
             "tasks": self._handle_tasks,
             "create_task": self._handle_create_task,
             "smart_create_task": self._handle_smart_create_task,
+            "task_creation_followup": self._handle_task_creation_followup,
             "help": self._handle_help,
             "blocked": self._handle_blocked,
             "blocker_help": self._handle_blocker_help,
@@ -312,12 +342,176 @@ Return ONLY the category name, nothing else."""
 
     # ==================== Core New Handlers ====================
 
+    def _get_next_missing_field(
+        self,
+        parsed: Dict[str, Any],
+        already_asked: List[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Determine what info is still needed for task creation."""
+        questions = [
+            {
+                "field": "deadline",
+                "check": lambda p: p.get("deadline") is not None,
+                "question": "What's the deadline for this task?",
+                "suggestions": ["By end of this week", "In 2 weeks", "By end of month", "No specific deadline"],
+            },
+            {
+                "field": "office_hours",
+                "check": lambda p: p.get("work_start_hour") not in (None, 9) or p.get("work_end_hour") not in (None, 18),
+                "question": "What are your working hours? (e.g., 9am to 6pm)",
+                "suggestions": ["9am to 5pm", "10am to 7pm", "9am to 6pm", "Flexible hours"],
+            },
+            {
+                "field": "priority",
+                "check": lambda p: p.get("priority") not in (None, "medium"),
+                "question": "What priority level would you like?",
+                "suggestions": ["Low", "Medium", "High", "Critical"],
+            },
+        ]
+
+        for q in questions:
+            if q["field"] not in already_asked and not q["check"](parsed):
+                return q
+
+        return None
+
+    async def _finalize_task_creation(
+        self,
+        pending: Dict[str, Any],
+        context: AgentContext,
+    ) -> Dict[str, Any]:
+        """Create the task after all info is gathered via conversation."""
+        conversation_id = context.conversation_id
+        parsed = pending["parsed"]
+
+        user_id = context.user.id if context.user else None
+        org_id = context.organization.id if context.organization else None
+
+        if not context.db or not user_id or not org_id:
+            if conversation_id:
+                self._clear_pending_task(conversation_id)
+            return {
+                "text": "I couldn't create the task due to a session issue. Please try again.",
+                "actions": [],
+            }
+
+        try:
+            from app.services.smart_task_service import SmartTaskService
+            smart_service = SmartTaskService(context.db)
+            result = await smart_service.create_smart_task(
+                parsed_task=parsed,
+                org_id=org_id,
+                user_id=user_id,
+            )
+            await context.db.commit()
+
+            if conversation_id:
+                self._clear_pending_task(conversation_id)
+
+            task = result["task"]
+            summary = result["summary"]
+
+            return {
+                "text": summary,
+                "actions": [
+                    {"type": "task_created", "task_id": task.id, "title": task.title},
+                ],
+                "suggestions": [
+                    "Show my tasks",
+                    "What should I work on next?",
+                    "Change the deadline",
+                ],
+            }
+        except Exception as e:
+            logger.error(f"Task creation failed: {e}", exc_info=True)
+            if conversation_id:
+                self._clear_pending_task(conversation_id)
+            return {
+                "text": f"I had trouble creating the task. Could you try again? ({str(e)[:100]})",
+                "actions": [],
+                "suggestions": ["Create a task", "Show my tasks"],
+            }
+
+    async def _handle_task_creation_followup(
+        self,
+        entities: Dict[str, Any],
+        context: AgentContext,
+    ) -> Dict[str, Any]:
+        """Handle user response to a task creation follow-up question."""
+        message = entities.get("raw_message", "")
+        pending = entities.get("pending_task", {})
+        awaiting = pending.get("awaiting_field")
+        conversation_id = context.conversation_id
+
+        # Update the pending task with the user's response
+        if awaiting == "deadline":
+            if any(w in message.lower() for w in ["no specific", "no deadline", "none", "flexible", "no"]):
+                pending["parsed"]["deadline"] = None
+                pending.setdefault("asked_fields", [])  # mark as asked so we skip it
+            else:
+                try:
+                    from dateutil import parser as date_parser
+                    from datetime import datetime
+                    parsed_date = date_parser.parse(message, fuzzy=True, default=datetime.now())
+                    pending["parsed"]["deadline"] = parsed_date.isoformat()
+                except Exception:
+                    pending["parsed"]["deadline"] = message
+
+        elif awaiting == "office_hours":
+            if any(w in message.lower() for w in ["flexible", "default", "normal"]):
+                pending["parsed"]["work_start_hour"] = 9
+                pending["parsed"]["work_end_hour"] = 18
+            else:
+                hours_match = re.search(
+                    r"(\d{1,2})\s*(?:am|AM|:00)?\s*(?:to|-)\s*(\d{1,2})\s*(?:pm|PM|:00)?",
+                    message,
+                )
+                if hours_match:
+                    start_h = int(hours_match.group(1))
+                    end_h = int(hours_match.group(2))
+                    if end_h <= start_h and end_h < 12:
+                        end_h += 12
+                    pending["parsed"]["work_start_hour"] = start_h
+                    pending["parsed"]["work_end_hour"] = end_h
+                else:
+                    pending["parsed"]["work_start_hour"] = 9
+                    pending["parsed"]["work_end_hour"] = 18
+
+        elif awaiting == "priority":
+            msg_lower = message.lower()
+            if any(w in msg_lower for w in ["critical", "urgent"]):
+                pending["parsed"]["priority"] = "critical"
+            elif "high" in msg_lower:
+                pending["parsed"]["priority"] = "high"
+            elif "low" in msg_lower:
+                pending["parsed"]["priority"] = "low"
+            else:
+                pending["parsed"]["priority"] = "medium"
+
+        # Check what's still missing
+        parsed = pending["parsed"]
+        next_question = self._get_next_missing_field(parsed, pending.get("asked_fields", []))
+
+        if next_question:
+            pending["awaiting_field"] = next_question["field"]
+            pending.setdefault("asked_fields", []).append(next_question["field"])
+            if conversation_id:
+                self._set_pending_task(conversation_id, pending)
+            return {
+                "text": next_question["question"],
+                "actions": [],
+                "suggestions": next_question.get("suggestions", []),
+            }
+
+        # All info gathered — create the task
+        return await self._finalize_task_creation(pending, context)
+
     async def _handle_smart_create_task(
         self,
         entities: Dict[str, Any],
         context: AgentContext
     ) -> Dict[str, Any]:
-        """Handle natural-language task creation with deadline and office hours."""
+        """Handle natural-language task creation with conversational follow-ups."""
         message = entities.get("raw_message", "")
 
         if not context.db:
@@ -343,23 +537,38 @@ Return ONLY the category name, nothing else."""
             # Step 1: AI parses natural language into structured data
             parsed = await smart_service.parse_natural_language_task(message)
 
-            # Step 2: Create task + subtasks + check-in config
+            # Step 2: Check if we have all required info
+            next_question = self._get_next_missing_field(parsed, [])
+            conversation_id = context.conversation_id
+
+            if next_question and conversation_id:
+                # Store partial state and ask follow-up
+                self._set_pending_task(conversation_id, {
+                    "parsed": parsed,
+                    "awaiting_field": next_question["field"],
+                    "asked_fields": [next_question["field"]],
+                    "original_message": message,
+                })
+
+                ack = f"Got it! I'll help you set up a task for: **{parsed.get('title', 'your task')}**\n\n"
+                return {
+                    "text": ack + next_question["question"],
+                    "actions": [],
+                    "suggestions": next_question.get("suggestions", []),
+                }
+
+            # All info present — create immediately (backwards compatible)
             result = await smart_service.create_smart_task(
                 parsed_task=parsed,
                 org_id=org_id,
                 user_id=user_id,
             )
-
-            # Step 3: Commit the DB transaction
             await context.db.commit()
 
-            summary = result["summary"]
-            task = result["task"]
-
             return {
-                "text": summary,
+                "text": result["summary"],
                 "actions": [
-                    {"type": "task_created", "task_id": task.id, "title": task.title},
+                    {"type": "task_created", "task_id": result["task"].id, "title": result["task"].title},
                 ],
                 "suggestions": [
                     "Show my tasks",

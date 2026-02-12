@@ -52,14 +52,14 @@ export const skillsService = {
   },
 
   async addUserSkill(userId: string, payload: ApiUserSkillCreate): Promise<ApiUserSkill> {
-    const { data } = await apiClient.post<ApiUserSkill>(`/skills/${userId}/assess`, payload);
+    const { data } = await apiClient.post<ApiUserSkill>(`/skills/${userId}/skills`, payload);
     return data;
   },
 
   // ─── Team Skills ───────────────────────────────────────────────
 
   async getTeamComposition(teamId: string): Promise<ApiTeamSkillComposition> {
-    const { data } = await apiClient.get<ApiTeamSkillComposition>(`/skills/${teamId}/composition`);
+    const { data } = await apiClient.get<ApiTeamSkillComposition>(`/skills/team/${teamId}/composition`);
     return data;
   },
 
@@ -94,9 +94,7 @@ export const skillsService = {
   // ─── Self-Sufficiency ──────────────────────────────────────────
 
   async getSelfSufficiency(userId: string): Promise<ApiSelfSufficiencyMetrics> {
-    const { data } = await apiClient.get<ApiSelfSufficiencyMetrics>(`/skills/metrics/self-sufficiency`, {
-      params: { user_id: userId },
-    });
+    const { data } = await apiClient.get<ApiSelfSufficiencyMetrics>(`/skills/${userId}/self-sufficiency`);
     return data;
   },
 };
