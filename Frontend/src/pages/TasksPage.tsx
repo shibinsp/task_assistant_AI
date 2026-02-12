@@ -18,6 +18,7 @@ import {
   Paperclip,
   MessageSquare,
   Bot,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -435,22 +436,26 @@ function TaskCard({
           </DropdownMenu>
         </div>
         <h4 className="font-medium mb-2 line-clamp-2">{task.title}</h4>
-        <div className="flex flex-wrap gap-1 mb-3">
-          {task.tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
-          ))}
-        </div>
+        {task.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {task.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-[10px]">{tag}</Badge>
+            ))}
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Avatar className="w-6 h-6">
               <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                {task.assigneeName?.charAt(0) ?? '?'}
+                {task.assigneeName ? task.assigneeName.charAt(0).toUpperCase() : <User className="w-3 h-3" />}
               </AvatarFallback>
             </Avatar>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {task.estimatedHours}h
-            </span>
+            {task.estimatedHours > 0 && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {task.estimatedHours}h
+              </span>
+            )}
           </div>
           {task.dueDate && (
             <span className={`text-xs ${new Date(task.dueDate) < new Date() ? 'text-red-500' : 'text-muted-foreground'}`}>
@@ -526,7 +531,7 @@ function ListView({
                   <td className="p-4">
                     <Avatar className="w-8 h-8">
                       <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                        {task.assigneeName?.charAt(0) ?? '?'}
+                        {task.assigneeName ? task.assigneeName.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
                       </AvatarFallback>
                     </Avatar>
                   </td>
@@ -539,7 +544,7 @@ function ListView({
                       <span className="text-sm text-muted-foreground">-</span>
                     )}
                   </td>
-                  <td className="p-4"><span className="text-sm text-muted-foreground">{task.estimatedHours}h</span></td>
+                  <td className="p-4"><span className="text-sm text-muted-foreground">{task.estimatedHours > 0 ? `${task.estimatedHours}h` : '-'}</span></td>
                 </tr>
               );
             })}

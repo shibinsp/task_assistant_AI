@@ -113,6 +113,8 @@ export function mapRoleToFrontend(role: ApiUserRole): FrontendUserRole {
 // ─── Task Mapper ─────────────────────────────────────────────────────
 
 export function mapTaskToFrontend(task: ApiTask): FrontendTask {
+  // Use assignee_name from ApiTaskDetail if available, otherwise fallback
+  const detail = task as ApiTask & { assignee_name?: string; creator_name?: string };
   return {
     id: task.id,
     title: task.title,
@@ -120,9 +122,9 @@ export function mapTaskToFrontend(task: ApiTask): FrontendTask {
     status: mapStatusToFrontend(task.status),
     priority: mapPriorityToFrontend(task.priority),
     assignee: task.assigned_to ?? '',
-    assigneeName: task.assigned_to ?? '',
+    assigneeName: detail.assignee_name ?? '',
     dueDate: task.deadline ?? '',
-    tags: task.tags,
+    tags: task.tags ?? [],
     estimatedHours: task.estimated_hours ?? 0,
     createdAt: task.created_at,
   };
