@@ -1012,10 +1012,13 @@ What would you like to work on?"""
         context: AgentContext
     ) -> Dict[str, Any]:
         """Fallback when we can't find the task — use AI directly."""
-        ai_response = await self._generate_ai_response(
-            f"The user is stuck and needs help. Their message: {message}\n\nProvide helpful troubleshooting advice.",
-            context,
-        )
+        try:
+            ai_response = await self._generate_ai_response(
+                f"The user is stuck and needs help. Their message: {message}\n\nProvide helpful troubleshooting advice.",
+                context,
+            )
+        except Exception:
+            ai_response = "I understand you're facing an issue. Could you describe the error or problem in more detail? I can help you troubleshoot."
         return {
             "text": ai_response,
             "actions": [{"type": "blocker_help_fallback"}],
@@ -1024,6 +1027,8 @@ What would you like to work on?"""
 
     async def _generate_ai_response(self, message: str, context: AgentContext) -> str:
         """Generate response using AI provider"""
+        import json as _json
+
         from app.services.ai_service import get_ai_service
         ai_service = get_ai_service()
 
@@ -1051,7 +1056,19 @@ You can help with: creating tasks, viewing tasks, getting unblocked, performance
                 temperature=0.7,
                 max_tokens=500,
             )
-            return response.content
+            content = response.content
+
+            # Safety net: if AI returned JSON instead of text, extract readable content
+            try:
+                parsed = _json.loads(content)
+                if isinstance(parsed, dict) and "response" in parsed:
+                    return parsed["response"]
+                if isinstance(parsed, dict) and "suggestion" in parsed:
+                    return parsed["suggestion"]
+            except (_json.JSONDecodeError, TypeError):
+                pass
+
+            return content
         except Exception as e:
             logger.warning(f"AI generation failed: {e}")
             return """I can help you with many things! Here's what I can do:

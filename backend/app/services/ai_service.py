@@ -158,6 +158,30 @@ class MockAIProvider:
         """Generate response based on prompt content."""
         prompt_lower = prompt.lower()
 
+        # Intent classification requests — return a valid intent word
+        if "classify" in prompt_lower and ("category" in prompt_lower or "one of these" in prompt_lower):
+            if any(w in prompt_lower for w in ["build", "create", "develop", "implement", "task"]):
+                return "smart_create_task"
+            if any(w in prompt_lower for w in ["stuck", "blocked", "error", "bug"]):
+                return "blocker_help"
+            if any(w in prompt_lower for w in ["progress", "on track", "% done"]):
+                return "checkin_response"
+            return "general"
+
+        # Task parsing requests — return structured JSON
+        if "parse" in prompt_lower and "task" in prompt_lower:
+            return json.dumps({
+                "title": "New Task",
+                "description": prompt[:200],
+                "deadline": None,
+                "work_start_hour": 9,
+                "work_end_hour": 18,
+                "estimated_hours": None,
+                "priority": "medium",
+                "tags": [],
+                "skills_required": [],
+            })
+
         if "decompose" in prompt_lower or "subtask" in prompt_lower:
             template = random.choice(self.DECOMPOSITION_TEMPLATES)
             return json.dumps(template)
@@ -169,11 +193,13 @@ class MockAIProvider:
         if "skill" in prompt_lower:
             return json.dumps(self.SKILL_SUGGESTIONS)
 
-        # Default response
-        return json.dumps({
-            "response": "I understand your request. Here's my analysis and suggestions based on the context provided.",
-            "confidence": 0.75
-        })
+        # Default conversational response
+        responses = [
+            "I can help you with task management, tracking progress, and getting unblocked. Try saying something like:\n\n- **\"I need to build X by Y\"** to create a task\n- **\"my tasks\"** to see your task list\n- **\"I'm stuck\"** to get help with blockers\n- **\"how am I doing\"** to check your status\n\nWhat would you like to do?",
+            "I'm your AI assistant for task management! I can create tasks, break them into subtasks, track your progress, and help when you're stuck. What can I help you with?",
+            "Here's what I can do for you:\n\n- Create and manage tasks with AI-powered decomposition\n- Track your progress with check-ins\n- Help you get unblocked with AI suggestions\n- Show your performance overview\n\nJust describe what you need!",
+        ]
+        return random.choice(responses)
 
     async def decompose_task(
         self,

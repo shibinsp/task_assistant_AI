@@ -251,7 +251,8 @@ function DescribeTaskDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
-        className="sm:max-w-xl max-h-[80vh] flex flex-col p-0 gap-0 fixed top-[50%] left-auto right-6 translate-x-0 translate-y-[-50%]"
+        className="sm:max-w-xl max-h-[80vh] flex flex-col p-0 gap-0"
+        style={{ top: '80px', left: 'auto', right: '24px', transform: 'none' }}
         onOpenAutoFocus={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
       >

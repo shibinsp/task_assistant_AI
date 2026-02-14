@@ -139,10 +139,11 @@ async def send_message(
 
         # Add agent response to conversation
         now = datetime.utcnow().isoformat()
+        response_text = result.message or "I'm here to help! Try asking about your tasks, or describe a task you'd like to create."
         agent_message = {
             "id": str(uuid4()),
             "role": "assistant",
-            "content": result.message,
+            "content": response_text,
             "agent_name": result.agent_name,
             "timestamp": now,
             "metadata": result.output,
@@ -163,7 +164,7 @@ async def send_message(
             conversation_id=conversation_id,
             message=ChatMessage(
                 role="assistant",
-                content=result.message,
+                content=response_text,
                 timestamp=now,
                 metadata=result.output,
             ),

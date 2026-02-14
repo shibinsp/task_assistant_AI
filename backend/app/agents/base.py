@@ -285,6 +285,7 @@ class BaseAgent(ABC):
             success=False,
             agent_name=self.name,
             event_id=context.event.id if context.event else "unknown",
+            message="I encountered an issue processing your request. Could you try again?",
             error=str(error),
             error_code=getattr(error, 'code', 'UNKNOWN_ERROR')
         )
