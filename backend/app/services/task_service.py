@@ -211,6 +211,10 @@ class TaskService:
                 raise ValidationException("Blocker type required when setting status to blocked")
             task.blocker_type = status_data.blocker_type
             task.blocker_description = status_data.blocker_description
+        elif old_status == TaskStatus.BLOCKED:
+            # Clear blocker fields when unblocking
+            task.blocker_type = None
+            task.blocker_description = None
 
         # Perform transition
         task.transition_to(new_status)

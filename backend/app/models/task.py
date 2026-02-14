@@ -44,7 +44,7 @@ class BlockerType(str, enum.Enum):
 VALID_STATUS_TRANSITIONS = {
     TaskStatus.TODO: [TaskStatus.IN_PROGRESS, TaskStatus.ARCHIVED],
     TaskStatus.IN_PROGRESS: [TaskStatus.BLOCKED, TaskStatus.REVIEW, TaskStatus.DONE, TaskStatus.TODO],
-    TaskStatus.BLOCKED: [TaskStatus.IN_PROGRESS, TaskStatus.TODO],
+    TaskStatus.BLOCKED: [TaskStatus.IN_PROGRESS, TaskStatus.TODO, TaskStatus.REVIEW, TaskStatus.DONE],
     TaskStatus.REVIEW: [TaskStatus.DONE, TaskStatus.IN_PROGRESS],
     TaskStatus.DONE: [TaskStatus.ARCHIVED, TaskStatus.IN_PROGRESS],
     TaskStatus.ARCHIVED: [TaskStatus.TODO],
