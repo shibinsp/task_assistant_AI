@@ -105,6 +105,7 @@ export interface ApiTask {
   skills_required: string[];
   parent_task_id?: string;
   sort_order: number;
+  is_draft: boolean;
   is_subtask: boolean;
   is_blocked: boolean;
   is_completed: boolean;
@@ -137,6 +138,7 @@ export interface ApiTaskCreate {
   tools?: string[];
   tags?: string[];
   skills_required?: string[];
+  is_draft?: boolean;
 }
 
 export interface ApiTaskUpdate {
@@ -154,6 +156,7 @@ export interface ApiTaskUpdate {
   tags?: string[];
   skills_required?: string[];
   sort_order?: number;
+  is_draft?: boolean;
 }
 
 export interface ApiTaskStatusUpdate {

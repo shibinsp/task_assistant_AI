@@ -61,6 +61,7 @@ class TaskService:
             assigned_to=task_data.assigned_to,
             created_by=created_by,
             parent_task_id=task_data.parent_task_id,
+            is_draft=task_data.is_draft,
         )
 
         # Set JSON fields
@@ -106,13 +107,18 @@ class TaskService:
         parent_task_id: Optional[str] = None,
         is_root_only: bool = False,
         search: Optional[str] = None,
+        is_draft: Optional[bool] = None,
         skip: int = 0,
         limit: int = 50
     ) -> Tuple[List[Task], int]:
         """Get tasks with filters."""
         query = select(Task).where(Task.org_id == org_id)
 
-        # Apply filters
+        # Apply filters — exclude drafts by default
+        if is_draft is not None:
+            query = query.where(Task.is_draft == is_draft)
+        else:
+            query = query.where(Task.is_draft == False)
         if status:
             query = query.where(Task.status == status)
         if priority:
@@ -225,6 +231,28 @@ class TaskService:
             "status", old_status.value, new_status.value
         )
 
+        await self.db.flush()
+        await self.db.refresh(task)
+        return task
+
+    async def publish_draft(
+        self,
+        task_id: str,
+        org_id: str,
+        published_by: str
+    ) -> Task:
+        """Publish a draft task."""
+        task = await self.get_task_by_id(task_id, org_id)
+        if not task:
+            raise NotFoundException("Task", task_id)
+        if not task.is_draft:
+            raise ValidationException("Task is not a draft")
+
+        task.is_draft = False
+        await self._create_history(
+            task_id, published_by, "published",
+            "is_draft", "true", "false"
+        )
         await self.db.flush()
         await self.db.refresh(task)
         return task

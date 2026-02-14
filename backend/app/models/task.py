@@ -134,6 +134,9 @@ class Task(Base):
     # Ordering
     sort_order = Column(Integer, default=0)
 
+    # Draft flag
+    is_draft = Column(Boolean, default=False, nullable=False, index=True)
+
     # Relationships
     organization = relationship("Organization", backref="tasks")
     assignee = relationship("User", foreign_keys=[assigned_to], backref="assigned_tasks")

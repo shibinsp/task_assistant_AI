@@ -32,6 +32,7 @@ export interface TaskListParams {
   project_id?: string;
   root_only?: boolean;
   search?: string;
+  is_draft?: boolean;
 }
 
 export const tasksService = {
@@ -64,6 +65,18 @@ export const tasksService = {
 
   async delete(taskId: string): Promise<void> {
     await apiClient.delete(`/tasks/${taskId}`);
+  },
+
+  async listDrafts(params?: Omit<TaskListParams, 'is_draft'>): Promise<ApiTaskListResponse> {
+    const { data } = await apiClient.get<ApiTaskListResponse>('/tasks', {
+      params: { ...params, is_draft: true },
+    });
+    return data;
+  },
+
+  async publishDraft(taskId: string): Promise<ApiTask> {
+    const { data } = await apiClient.post<ApiTask>(`/tasks/${taskId}/publish`);
+    return data;
   },
 
   async getStatistics(params?: { team_id?: string; project_id?: string; user_id?: string }) {

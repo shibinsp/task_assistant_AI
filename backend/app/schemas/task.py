@@ -32,6 +32,7 @@ class TaskCreate(TaskBase):
     tools: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     skills_required: List[str] = Field(default_factory=list)
+    is_draft: bool = False
 
     @field_validator('tools', 'tags', 'skills_required', mode='before')
     @classmethod
@@ -57,6 +58,7 @@ class TaskUpdate(BaseModel):
     tags: Optional[List[str]] = None
     skills_required: Optional[List[str]] = None
     sort_order: Optional[int] = None
+    is_draft: Optional[bool] = None
 
 
 class TaskStatusUpdate(BaseModel):
@@ -101,6 +103,7 @@ class TaskResponse(BaseModel):
     skills_required: List[str]
     parent_task_id: Optional[str]
     sort_order: int
+    is_draft: bool
     is_subtask: bool
     is_blocked: bool
     is_completed: bool

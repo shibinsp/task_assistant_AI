@@ -23,6 +23,7 @@ import {
   Copy,
   Check,
   Lightbulb,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { TaskCreationSidebar } from '@/components/tasks/TaskCreationSidebar';
+import { useUIStore } from '@/store/uiStore';
 import { tasksService } from '@/services/tasks.service';
 import { chatService } from '@/services/chat.service';
 import { queryKeys } from '@/hooks/useApi';
@@ -932,6 +935,7 @@ export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
   const queryClient = useQueryClient();
+  const { toggleTaskCreationSidebar } = useUIStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.tasks.list({ search: searchQuery || undefined, root_only: true, limit: 100 }),
@@ -983,12 +987,18 @@ export default function TasksPage() {
             <h1 className="text-2xl lg:text-3xl font-bold">Tasks</h1>
             <p className="text-muted-foreground mt-1">Manage and track your tasks</p>
           </div>
-          <DescribeTaskDialog onTaskCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all })}>
-            <Button className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Describe Your Task
+          <div className="flex gap-2">
+            <DescribeTaskDialog onTaskCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all })}>
+              <Button variant="outline" className="gap-2">
+                <Sparkles className="w-4 h-4" />
+                AI Describe
+              </Button>
+            </DescribeTaskDialog>
+            <Button className="gap-2" onClick={toggleTaskCreationSidebar}>
+              <Plus className="w-4 h-4" />
+              Create Task
             </Button>
-          </DescribeTaskDialog>
+          </div>
         </div>
 
         {/* Controls */}
@@ -1065,6 +1075,9 @@ export default function TasksPage() {
           onClose={() => setSelectedTask(null)}
         />
       )}
+
+      {/* Task Creation Sidebar */}
+      <TaskCreationSidebar />
     </DashboardLayout>
   );
 }

@@ -76,11 +76,13 @@ async def create_task(
         task_data, current_user.org_id, current_user.id
     )
 
-    await _fire_automation_event("task_created", {
-        "task_id": task.id, "title": task.title,
-        "priority": task.priority.value if task.priority else "medium",
-        "org_id": current_user.org_id,
-    })
+    # Only fire automation event for non-draft tasks
+    if not task.is_draft:
+        await _fire_automation_event("task_created", {
+            "task_id": task.id, "title": task.title,
+            "priority": task.priority.value if task.priority else "medium",
+            "org_id": current_user.org_id,
+        })
 
     return TaskResponse(
         **task.__dict__,
@@ -111,6 +113,7 @@ async def list_tasks(
     parent_task_id: Optional[str] = Query(None),
     root_only: bool = Query(False, description="Only return root tasks (no subtasks)"),
     search: Optional[str] = Query(None),
+    is_draft: Optional[bool] = Query(None, description="Filter by draft status"),
     current_user: User = Depends(get_current_active_user),
     service: TaskService = Depends(get_task_service)
 ):
@@ -137,6 +140,7 @@ async def list_tasks(
         parent_task_id=parent_task_id,
         is_root_only=root_only,
         search=search,
+        is_draft=is_draft,
         skip=pagination.skip,
         limit=pagination.limit
     )
@@ -318,6 +322,39 @@ async def update_task_status(
             "task_id": task.id, "title": task.title, "org_id": current_user.org_id,
             "blocker_type": status_data.blocker_type.value if status_data.blocker_type else None,
         })
+
+    return TaskResponse(
+        **task.__dict__,
+        tools=task.tools,
+        tags=task.tags,
+        skills_required=task.skills_required,
+        is_subtask=task.is_subtask,
+        is_blocked=task.is_blocked,
+        is_completed=task.is_completed,
+        is_overdue=task.is_overdue,
+        progress_percentage=task.progress_percentage
+    )
+
+
+@router.post(
+    "/{task_id}/publish",
+    response_model=TaskResponse,
+    summary="Publish draft",
+    description="Publish a draft task, making it active"
+)
+async def publish_draft(
+    task_id: str,
+    current_user: User = Depends(get_current_active_user),
+    service: TaskService = Depends(get_task_service)
+):
+    """Publish a draft task."""
+    task = await service.publish_draft(task_id, current_user.org_id, current_user.id)
+
+    await _fire_automation_event("task_created", {
+        "task_id": task.id, "title": task.title,
+        "priority": task.priority.value if task.priority else "medium",
+        "org_id": current_user.org_id,
+    })
 
     return TaskResponse(
         **task.__dict__,

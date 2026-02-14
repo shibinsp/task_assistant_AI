@@ -27,6 +27,7 @@ export const queryKeys = {
     dependencies: (taskId: string) => ['tasks', 'dependencies', taskId] as const,
     comments: (taskId: string) => ['tasks', 'comments', taskId] as const,
     history: (taskId: string) => ['tasks', 'history', taskId] as const,
+    drafts: (filters?: Record<string, unknown>) => ['tasks', 'drafts', filters] as const,
   },
   dashboard: {
     metrics: (filters?: Record<string, unknown>) => ['dashboard', 'metrics', filters] as const,

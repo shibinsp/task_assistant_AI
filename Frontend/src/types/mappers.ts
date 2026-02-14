@@ -24,6 +24,7 @@ export interface FrontendTask {
   dueDate: string;
   tags: string[];
   estimatedHours: number;
+  isDraft: boolean;
   createdAt: string;
 }
 
@@ -127,6 +128,7 @@ export function mapTaskToFrontend(task: ApiTask): FrontendTask {
     dueDate: task.deadline ?? '',
     tags: task.tags ?? [],
     estimatedHours: task.estimated_hours ?? 0,
+    isDraft: task.is_draft ?? false,
     createdAt: task.created_at,
   };
 }
