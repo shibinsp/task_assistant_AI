@@ -250,7 +250,11 @@ function DescribeTaskDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+      <DialogContent
+        className="sm:max-w-xl max-h-[80vh] flex flex-col p-0 gap-0 fixed top-[50%] left-auto right-6 translate-x-0 translate-y-[-50%]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -440,7 +444,7 @@ function DescribeTaskDialog({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-end gap-2">
+                <div className="flex items-center gap-2">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -457,12 +461,12 @@ function DescribeTaskDialog({
                   >
                     <Paperclip className="w-4 h-4" />
                   </Button>
-                  <Textarea
+                  <Input
                     placeholder="Type your reply..."
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    rows={1}
-                    className="min-h-[40px] max-h-[120px] resize-none"
+                    className="flex-1"
+                    autoComplete="off"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
