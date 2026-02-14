@@ -14,7 +14,7 @@ import {
   Building2
 } from 'lucide-react';
 
-const GOOGLE_CLIENT_ID = '1058266717863-6qoua6bdose1soegsvbs36ndtnbegpbm.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '1058266717863-cajvn6yp11006rd62pl641c1009m50vc.apps.googleusercontent.com';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

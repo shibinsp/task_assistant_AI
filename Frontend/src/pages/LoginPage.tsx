@@ -30,7 +30,7 @@ import { authService } from '@/services/auth.service';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 
-const GOOGLE_CLIENT_ID = '1058266717863-6qoua6bdose1soegsvbs36ndtnbegpbm.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '1058266717863-cajvn6yp11006rd62pl641c1009m50vc.apps.googleusercontent.com';
 
 function ForgotPasswordDialog() {
   const [email, setEmail] = useState('');
