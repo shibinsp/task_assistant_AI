@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -430,6 +431,7 @@ function ViewDocumentDialog({
             <File className="w-5 h-5 text-primary" />
             {doc.title}
           </DialogTitle>
+          <DialogDescription className="sr-only">View document details and content.</DialogDescription>
         </DialogHeader>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge
@@ -571,6 +573,7 @@ function DocumentFormDialog({
           <DialogTitle>
             {isEditing ? 'Edit Document' : 'Create New Document'}
           </DialogTitle>
+          <DialogDescription className="sr-only">Fill in the document details below.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}

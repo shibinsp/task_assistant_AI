@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -19,6 +18,11 @@ import {
   MessageSquare,
   Bot,
   User,
+  Send,
+  CheckCircle2,
+  Copy,
+  Check,
+  Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -72,92 +77,409 @@ const columns = [
   { id: 'done' as const, title: 'Done', color: 'bg-emerald-500' },
 ];
 
-// ─── Describe Task Dialog (AI-driven) ────────────────────────────────
-function DescribeTaskDialog({ children }: { children: React.ReactNode }) {
+// ─── Chat message type ───────────────────────────────────────────────
+interface ChatMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  suggestions?: string[];
+  timestamp: Date;
+}
+
+// ─── Create Task Chat Dialog (inline AI) ─────────────────────────────
+function DescribeTaskDialog({
+  children,
+  onTaskCreated,
+}: {
+  children: React.ReactNode;
+  onTaskCreated?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const navigate = useNavigate();
+  const [chatStarted, setChatStarted] = useState(false);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [taskCreated, setTaskCreated] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSendToAI = () => {
-    setOpen(false);
-    navigate('/ai', {
-      state: {
-        pendingTask: {
-          description: description.trim() || undefined,
-          fileName: file?.name,
-        },
-        file: file || undefined,
-      },
-    });
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const resetDialog = () => {
     setDescription('');
+    setFile(null);
+    setChatStarted(false);
+    setMessages([]);
+    setInputValue('');
+    setIsTyping(false);
+    setConversationId(null);
+    setTaskCreated(false);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) resetDialog();
+  };
+
+  const addUserMessage = (text: string): ChatMsg => {
+    const msg: ChatMsg = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: text,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, msg]);
+    return msg;
+  };
+
+  const addAssistantMessage = (content: string, suggestions?: string[]) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content,
+        suggestions,
+        timestamp: new Date(),
+      },
+    ]);
+  };
+
+  const sendToAI = async (message: string, fileToSend?: File) => {
+    setIsTyping(true);
+    try {
+      let response;
+      if (fileToSend) {
+        response = await chatService.sendMessageWithFile(
+          fileToSend,
+          message || 'Please analyze this file and help me create a task from it.',
+          conversationId ?? undefined,
+        );
+      } else {
+        response = await chatService.sendMessage({
+          message,
+          conversation_id: conversationId ?? undefined,
+        });
+      }
+
+      if (!conversationId) {
+        setConversationId(response.conversation_id);
+      }
+
+      // Check if a task was created (AI response contains task creation confirmation)
+      const content = response.message.content;
+      if (
+        content.toLowerCase().includes('task has been created') ||
+        content.toLowerCase().includes('task created') ||
+        content.toLowerCase().includes('successfully created')
+      ) {
+        setTaskCreated(true);
+        onTaskCreated?.();
+      }
+
+      addAssistantMessage(content, response.suggestions);
+    } catch (error) {
+      addAssistantMessage(
+        'Sorry, something went wrong. Please try again.',
+      );
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  // Initial submit (from the description form)
+  const handleStart = async () => {
+    if (!description.trim() && !file) return;
+    setChatStarted(true);
+
+    const text = description.trim() || `[Uploaded file: ${file!.name}]`;
+    addUserMessage(text);
+    setDescription('');
+
+    await sendToAI(
+      description.trim() || 'Please analyze this file and help me create a task from it.',
+      file ?? undefined,
+    );
     setFile(null);
   };
 
+  // Follow-up messages in chat
+  const handleSendMessage = async () => {
+    const text = inputValue.trim();
+    if (!text || isTyping) return;
+    addUserMessage(text);
+    setInputValue('');
+    await sendToAI(text);
+  };
+
+  // Click a suggestion badge
+  const handleSuggestionClick = async (suggestion: string) => {
+    if (isTyping) return;
+    addUserMessage(suggestion);
+    await sendToAI(suggestion);
+  };
+
+  // File upload in chat
+  const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    addUserMessage(`[Uploaded file: ${f.name}]`);
+    await sendToAI('', f);
+    e.target.value = '';
+  };
+
+  const handleCopy = (text: string, msgId: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(msgId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            Describe Your Task
+            {taskCreated ? 'Task Created!' : 'Describe Your Task'}
           </DialogTitle>
+          <DialogDescription className="sr-only">Use AI to create a new task by describing what you need done.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label>Describe what you need to do</Label>
-            <Textarea
-              placeholder="e.g., I need to build a REST API for user authentication with JWT tokens, set up database models, write tests..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={5}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Or upload a task description</Label>
-            <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-              <input
-                type="file"
-                accept=".pdf,.docx,.txt,.md"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="hidden"
-                id="task-file-upload"
+
+        {!chatStarted ? (
+          /* ─── Initial Input Form ─── */
+          <div className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label>Describe what you need to do</Label>
+              <Textarea
+                placeholder="e.g., I need to build a REST API for user authentication with JWT tokens, set up database models, write tests..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={5}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    handleStart();
+                  }
+                }}
               />
-              <label htmlFor="task-file-upload" className="cursor-pointer">
-                {file ? (
-                  <div className="flex items-center justify-center gap-2 text-sm text-primary">
-                    <Paperclip className="w-4 h-4" />
-                    {file.name}
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground text-xs ml-2"
-                      onClick={(e) => { e.preventDefault(); setFile(null); }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-muted-foreground text-sm">
-                    <Paperclip className="w-5 h-5 mx-auto mb-1 opacity-50" />
-                    Click to upload PDF, DOCX, or TXT
-                  </div>
-                )}
-              </label>
             </div>
+            <div className="space-y-2">
+              <Label>Or upload a task description</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="hidden"
+                  id="task-file-upload"
+                />
+                <label htmlFor="task-file-upload" className="cursor-pointer">
+                  {file ? (
+                    <div className="flex items-center justify-center gap-2 text-sm text-primary">
+                      <Paperclip className="w-4 h-4" />
+                      {file.name}
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground text-xs ml-2"
+                        onClick={(e) => { e.preventDefault(); setFile(null); }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      <Paperclip className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                      Click to upload PDF, DOCX, or TXT
+                    </div>
+                  )}
+                </label>
+              </div>
+            </div>
+            <Button
+              className="w-full gap-2"
+              disabled={!description.trim() && !file}
+              onClick={handleStart}
+            >
+              <Bot className="w-4 h-4" />
+              Start AI Task Creation
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              The AI will ask about deadlines, priorities, and create the task with subtasks.
+            </p>
           </div>
-          <Button
-            className="w-full gap-2"
-            disabled={!description.trim() && !file}
-            onClick={handleSendToAI}
-          >
-            <Bot className="w-4 h-4" />
-            Send to AI Agent
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">
-            The AI agent will ask you about deadlines, priorities, and create the task with subtasks.
-          </p>
-        </div>
+        ) : (
+          /* ─── Chat View ─── */
+          <>
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-[300px] max-h-[50vh]"
+            >
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <Avatar className="w-7 h-7 shrink-0 mt-0.5">
+                      <AvatarFallback className={`text-[10px] ${
+                        msg.role === 'assistant'
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {msg.role === 'assistant' ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div
+                        className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted rounded-bl-md'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+
+                      {/* Copy button for AI messages */}
+                      {msg.role === 'assistant' && (
+                        <button
+                          onClick={() => handleCopy(msg.content, msg.id)}
+                          className="mt-1 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copiedId === msg.id ? (
+                            <Check className="w-3 h-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+
+                      {/* Suggestion badges */}
+                      {msg.suggestions && msg.suggestions.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {msg.suggestions.map((s, i) => (
+                            <Badge
+                              key={i}
+                              variant="outline"
+                              className="cursor-pointer hover:bg-primary/10 hover:border-primary/50 transition-colors text-xs"
+                              onClick={() => handleSuggestionClick(s)}
+                            >
+                              <Lightbulb className="w-3 h-3 mr-1" />
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Typing indicator */}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="flex gap-2 max-w-[85%]">
+                    <Avatar className="w-7 h-7 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                        <Bot className="w-3.5 h-3.5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
+                      <div className="flex gap-1.5">
+                        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Task created success message */}
+              {taskCreated && (
+                <div className="flex justify-center">
+                  <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-full px-4 py-2 text-sm">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Task created successfully!
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Chat input area */}
+            <div className="border-t px-6 py-4 shrink-0">
+              {taskCreated ? (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    onClick={resetDialog}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Create Another Task
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => handleOpenChange(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md"
+                    className="hidden"
+                    onChange={handleChatFileUpload}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isTyping}
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </Button>
+                  <Textarea
+                    placeholder="Type your reply..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    rows={1}
+                    className="min-h-[40px] max-h-[120px] resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    className="shrink-0"
+                    disabled={!inputValue.trim() || isTyping}
+                    onClick={handleSendMessage}
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -189,8 +511,8 @@ function TaskDetailPanel({
   const blockerMutation = useMutation({
     mutationFn: () =>
       tasksService.updateStatus(task.id, {
-        status: 'BLOCKED',
-        blocker_type: 'BUG',
+        status: 'blocked',
+        blocker_type: 'bug',
         blocker_description: blockerDesc,
       }),
     onSuccess: () => {
@@ -661,7 +983,7 @@ export default function TasksPage() {
             <h1 className="text-2xl lg:text-3xl font-bold">Tasks</h1>
             <p className="text-muted-foreground mt-1">Manage and track your tasks</p>
           </div>
-          <DescribeTaskDialog>
+          <DescribeTaskDialog onTaskCreated={() => queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all })}>
             <Button className="gap-2">
               <Sparkles className="w-4 h-4" />
               Describe Your Task

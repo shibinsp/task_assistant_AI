@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -239,7 +238,6 @@ function MessageBubble({ message, onSuggestionClick }: { message: Message; onSug
 
 export default function AICommandCenter() {
   const { user } = useAuthStore();
-  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -257,7 +255,6 @@ export default function AICommandCenter() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingTaskProcessed = useRef(false);
   const conversationLoaded = useRef(false);
 
   // Persist conversationId to sessionStorage
@@ -478,27 +475,6 @@ export default function AICommandCenter() {
       setIsTyping(false);
     }
   }, [conversationId, refetchConversations]);
-
-  // Handle incoming task description from TasksPage navigation
-  useEffect(() => {
-    if (pendingTaskProcessed.current) return;
-    const state = location.state as { pendingTask?: { description?: string; fileName?: string }; file?: File } | null;
-    if (!state?.pendingTask) return;
-
-    pendingTaskProcessed.current = true;
-
-    const { description, fileName } = state.pendingTask;
-    const file = state.file;
-
-    // Clear navigation state to prevent re-processing on remount
-    window.history.replaceState({}, document.title);
-
-    if (file) {
-      handleFileUpload(file, description);
-    } else if (description) {
-      sendMessageFromUI(description);
-    }
-  }, [location.state, handleFileUpload, sendMessageFromUI]);
 
   const chatMutation = useMutation({
     mutationFn: (message: string) =>

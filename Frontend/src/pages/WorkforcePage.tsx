@@ -44,6 +44,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -466,6 +467,7 @@ function WorkforceScoresTab() {
                 userDetail?.user_name ?? 'User Score Detail'
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">Detailed workforce score breakdown for this user.</DialogDescription>
           </DialogHeader>
           {detailLoading ? (
             <div className="space-y-4 pt-2">
@@ -782,6 +784,7 @@ function SimulationsTab() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Workforce Simulation</DialogTitle>
+            <DialogDescription className="sr-only">Configure and run a workforce restructuring simulation.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div>

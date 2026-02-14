@@ -2,11 +2,11 @@
 // These mirror the backend Pydantic schemas exactly (snake_case).
 
 // Enums
-export type ApiTaskStatus = 'OPEN' | 'IN_PROGRESS' | 'BLOCKED' | 'IN_REVIEW' | 'COMPLETED';
-export type ApiTaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ApiTaskStatus = 'todo' | 'in_progress' | 'blocked' | 'review' | 'done' | 'archived';
+export type ApiTaskPriority = 'low' | 'medium' | 'high' | 'critical';
 export type ApiUserRole = 'super_admin' | 'org_admin' | 'manager' | 'team_lead' | 'employee' | 'viewer';
-export type ApiPatternStatus = 'DETECTED' | 'ACCEPTED' | 'REJECTED' | 'IMPLEMENTED';
-export type ApiAgentStatus = 'CREATED' | 'SHADOW' | 'LIVE' | 'PAUSED' | 'RETIRED';
+export type ApiPatternStatus = 'detected' | 'suggested' | 'accepted' | 'rejected' | 'implemented';
+export type ApiAgentStatus = 'created' | 'shadow' | 'supervised' | 'live' | 'paused' | 'retired';
 
 // ─── Auth ────────────────────────────────────────────────────────────
 

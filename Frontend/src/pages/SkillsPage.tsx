@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -190,6 +191,7 @@ function CreateSkillDialog({ children }: { children: React.ReactNode }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Skill</DialogTitle>
+          <DialogDescription className="sr-only">Add a new skill to the organization skill catalog.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <div>
@@ -279,6 +281,7 @@ function AddUserSkillDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Skill</DialogTitle>
+          <DialogDescription className="sr-only">Add an existing skill to a user profile.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-4">
           <div>

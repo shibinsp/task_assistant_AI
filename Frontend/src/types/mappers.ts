@@ -49,18 +49,19 @@ export interface FrontendTeamMember {
 // ─── Status Mappers ──────────────────────────────────────────────────
 
 const statusToFrontend: Record<ApiTaskStatus, FrontendTaskStatus> = {
-  OPEN: 'todo',
-  IN_PROGRESS: 'in-progress',
-  BLOCKED: 'in-progress',
-  IN_REVIEW: 'review',
-  COMPLETED: 'done',
+  todo: 'todo',
+  in_progress: 'in-progress',
+  blocked: 'in-progress',
+  review: 'review',
+  done: 'done',
+  archived: 'done',
 };
 
 const statusToApi: Record<FrontendTaskStatus, ApiTaskStatus> = {
-  'todo': 'OPEN',
-  'in-progress': 'IN_PROGRESS',
-  'review': 'IN_REVIEW',
-  'done': 'COMPLETED',
+  'todo': 'todo',
+  'in-progress': 'in_progress',
+  'review': 'review',
+  'done': 'done',
 };
 
 export function mapStatusToFrontend(status: ApiTaskStatus): FrontendTaskStatus {
@@ -68,23 +69,23 @@ export function mapStatusToFrontend(status: ApiTaskStatus): FrontendTaskStatus {
 }
 
 export function mapStatusToApi(status: FrontendTaskStatus): ApiTaskStatus {
-  return statusToApi[status] ?? 'OPEN';
+  return statusToApi[status] ?? 'todo';
 }
 
 // ─── Priority Mappers ────────────────────────────────────────────────
 
 const priorityToFrontend: Record<ApiTaskPriority, FrontendTaskPriority> = {
-  LOW: 'low',
-  MEDIUM: 'medium',
-  HIGH: 'high',
-  CRITICAL: 'urgent',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  critical: 'urgent',
 };
 
 const priorityToApi: Record<FrontendTaskPriority, ApiTaskPriority> = {
-  low: 'LOW',
-  medium: 'MEDIUM',
-  high: 'HIGH',
-  urgent: 'CRITICAL',
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+  urgent: 'critical',
 };
 
 export function mapPriorityToFrontend(priority: ApiTaskPriority): FrontendTaskPriority {
@@ -92,7 +93,7 @@ export function mapPriorityToFrontend(priority: ApiTaskPriority): FrontendTaskPr
 }
 
 export function mapPriorityToApi(priority: FrontendTaskPriority): ApiTaskPriority {
-  return priorityToApi[priority] ?? 'MEDIUM';
+  return priorityToApi[priority] ?? 'medium';
 }
 
 // ─── Role Mappers ────────────────────────────────────────────────────

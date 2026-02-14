@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -179,6 +180,7 @@ function WorkflowBuilderDialog({ children }: { children: React.ReactNode }) {
       <DialogContent className="max-w-5xl h-[80vh]">
         <DialogHeader>
           <DialogTitle>Create Workflow</DialogTitle>
+          <DialogDescription className="sr-only">Build an automated workflow using drag-and-drop nodes.</DialogDescription>
         </DialogHeader>
         
         <div className="flex h-full gap-4">
@@ -323,7 +325,7 @@ export default function AutomationPage() {
     id: agent.id,
     name: agent.name,
     description: agent.description ?? '',
-    status: agent.status === 'LIVE' ? 'active' : agent.status === 'PAUSED' ? 'paused' : 'draft',
+    status: agent.status === 'live' ? 'active' : agent.status === 'paused' ? 'paused' : 'draft',
     trigger: agent.pattern_id ? 'Pattern Detected' : 'Manual',
     actions: agent.total_runs,
     lastRun: agent.last_run_at
