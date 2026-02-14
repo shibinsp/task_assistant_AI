@@ -69,15 +69,15 @@ class IntegrationService:
         self,
         org_id: str,
         integration_type: Optional[IntegrationType] = None,
-        status: Optional[IntegrationStatus] = None
+        is_active: Optional[bool] = None
     ) -> List[Integration]:
         """Get all integrations for an organization."""
         query = select(Integration).where(Integration.org_id == org_id)
 
         if integration_type:
             query = query.where(Integration.integration_type == integration_type)
-        if status:
-            query = query.where(Integration.status == status)
+        if is_active is not None:
+            query = query.where(Integration.is_active == is_active)
 
         result = await self.db.execute(query.order_by(Integration.created_at.desc()))
         return list(result.scalars().all())

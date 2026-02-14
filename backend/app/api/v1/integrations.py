@@ -10,7 +10,7 @@ from datetime import datetime
 
 from app.database import get_db
 from app.models.user import User, UserRole
-from app.models.notification import IntegrationType, IntegrationStatus
+from app.models.notification import IntegrationType
 from app.services.integration_service import IntegrationService
 from app.api.v1.dependencies import get_current_active_user, require_roles
 from app.core.permissions import Permission, has_permission
@@ -31,11 +31,11 @@ class IntegrationResponse(BaseModel):
     id: str
     integration_type: IntegrationType
     name: str
-    status: IntegrationStatus
+    is_active: bool
     connected_at: Optional[datetime]
     last_sync_at: Optional[datetime]
-    sync_status: Optional[str]
-    error_message: Optional[str]
+    last_sync_status: Optional[str]
+    sync_error: Optional[str]
     created_at: datetime
 
     class Config:
@@ -98,7 +98,7 @@ def get_integration_service(db: AsyncSession = Depends(get_db)) -> IntegrationSe
 )
 async def list_integrations(
     integration_type: Optional[IntegrationType] = Query(None),
-    status: Optional[IntegrationStatus] = Query(None),
+    is_active: Optional[bool] = Query(None),
     current_user: User = Depends(require_roles(
         UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN
     )),
@@ -111,7 +111,7 @@ async def list_integrations(
     integrations = await service.get_integrations(
         org_id=current_user.org_id,
         integration_type=integration_type,
-        status=status
+        is_active=is_active
     )
 
     return [
@@ -119,11 +119,11 @@ async def list_integrations(
             id=i.id,
             integration_type=i.integration_type,
             name=i.name,
-            status=i.status,
+            is_active=i.is_active,
             connected_at=i.connected_at,
             last_sync_at=i.last_sync_at,
-            sync_status=i.sync_status,
-            error_message=i.error_message,
+            last_sync_status=i.last_sync_status,
+            sync_error=i.sync_error,
             created_at=i.created_at
         ) for i in integrations
     ]
@@ -158,11 +158,11 @@ async def create_integration(
         id=integration.id,
         integration_type=integration.integration_type,
         name=integration.name,
-        status=integration.status,
+        is_active=integration.is_active,
         connected_at=integration.connected_at,
         last_sync_at=integration.last_sync_at,
-        sync_status=integration.sync_status,
-        error_message=integration.error_message,
+        last_sync_status=integration.last_sync_status,
+        sync_error=integration.sync_error,
         created_at=integration.created_at
     )
 
@@ -189,11 +189,11 @@ async def get_integration(
         id=integration.id,
         integration_type=integration.integration_type,
         name=integration.name,
-        status=integration.status,
+        is_active=integration.is_active,
         connected_at=integration.connected_at,
         last_sync_at=integration.last_sync_at,
-        sync_status=integration.sync_status,
-        error_message=integration.error_message,
+        last_sync_status=integration.last_sync_status,
+        sync_error=integration.sync_error,
         created_at=integration.created_at
     )
 
@@ -288,11 +288,11 @@ async def complete_oauth(
         id=integration.id,
         integration_type=integration.integration_type,
         name=integration.name,
-        status=integration.status,
+        is_active=integration.is_active,
         connected_at=integration.connected_at,
         last_sync_at=integration.last_sync_at,
-        sync_status=integration.sync_status,
-        error_message=integration.error_message,
+        last_sync_status=integration.last_sync_status,
+        sync_error=integration.sync_error,
         created_at=integration.created_at
     )
 

@@ -4,7 +4,7 @@ ML-powered forecasting and risk assessment
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
 
@@ -50,7 +50,7 @@ class Prediction(Base):
     accuracy_score = Column(Float, nullable=True)
 
     organization = relationship("Organization", backref="predictions")
-    task = relationship("Task", backref="predictions")
+    task = relationship("Task", backref=backref("predictions", passive_deletes=True))
     user = relationship("User", backref="predictions")
 
     @property

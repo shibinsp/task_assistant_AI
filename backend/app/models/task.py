@@ -4,7 +4,7 @@ Task management with subtasks, dependencies, and AI scoring
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
 from typing import Optional, List
@@ -145,7 +145,7 @@ class Task(Base):
         "Task",
         remote_side="Task.id",
         foreign_keys=[parent_task_id],
-        backref="subtasks"
+        backref=backref("subtasks", cascade="all, delete-orphan", passive_deletes=True)
     )
     dependencies = relationship(
         "TaskDependency",
@@ -284,7 +284,11 @@ class TaskDependency(Base):
     description = Column(String(500), nullable=True)
 
     # Relationship to dependent task
-    depends_on = relationship("Task", foreign_keys=[depends_on_id])
+    depends_on = relationship(
+        "Task",
+        foreign_keys=[depends_on_id],
+        backref=backref("depended_on_by", cascade="all, delete-orphan", passive_deletes=True)
+    )
 
     def __repr__(self) -> str:
         return f"<TaskDependency(task={self.task_id}, depends_on={self.depends_on_id})>"
@@ -317,7 +321,7 @@ class TaskHistory(Base):
     details_json = Column(Text, default="{}")
 
     # Relationships
-    task = relationship("Task", backref="history")
+    task = relationship("Task", backref=backref("history", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User", backref="task_changes")
 
     @property
@@ -358,5 +362,5 @@ class TaskComment(Base):
     is_edited = Column(Boolean, default=False)
 
     # Relationships
-    task = relationship("Task", backref="comments")
+    task = relationship("Task", backref=backref("comments", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User", backref="task_comments")

@@ -4,7 +4,7 @@ Smart check-in system for proactive task monitoring
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
 from typing import Optional
@@ -100,7 +100,7 @@ class CheckIn(Base):
     escalation_reason = Column(Text, nullable=True)
 
     # Relationships
-    task = relationship("Task", backref="checkins")
+    task = relationship("Task", backref=backref("checkins", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User", foreign_keys=[user_id], backref="checkins")
     organization = relationship("Organization", backref="checkins")
     escalated_user = relationship("User", foreign_keys=[escalated_to])

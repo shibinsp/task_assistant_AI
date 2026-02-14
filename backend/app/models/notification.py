@@ -4,7 +4,7 @@ Communication and external system connections
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
 
@@ -91,7 +91,7 @@ class Notification(Base):
 
     user = relationship("User", backref="notifications")
     organization = relationship("Organization", backref="notifications")
-    task = relationship("Task", backref="notifications")
+    task = relationship("Task", backref=backref("notifications", passive_deletes=True))
     checkin = relationship("CheckIn", backref="notifications")
 
 

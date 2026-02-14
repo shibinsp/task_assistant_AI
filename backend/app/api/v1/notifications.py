@@ -28,7 +28,6 @@ class NotificationResponse(BaseModel):
     is_read: bool
     read_at: Optional[datetime]
     action_url: Optional[str]
-    action_label: Optional[str]
     created_at: datetime
 
     class Config:
@@ -104,7 +103,6 @@ async def get_notifications(
                 is_read=n.is_read,
                 read_at=n.read_at,
                 action_url=n.action_url,
-                action_label=n.action_label,
                 created_at=n.created_at
             ) for n in notifications
         ],
@@ -152,7 +150,6 @@ async def mark_notification_read(
         is_read=notification.is_read,
         read_at=notification.read_at,
         action_url=notification.action_url,
-        action_label=notification.action_label,
         created_at=notification.created_at
     )
 
