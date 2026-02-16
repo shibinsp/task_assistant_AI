@@ -44,6 +44,8 @@ class DocumentType(str, enum.Enum):
     POLICY = "policy"
     MEETING_NOTES = "meeting_notes"
     ARCHITECTURE = "architecture"
+    GUIDE = "guide"
+    TROUBLESHOOTING = "troubleshooting"
     OTHER = "other"
 
 

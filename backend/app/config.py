@@ -6,7 +6,7 @@ Handles all application settings using Pydantic Settings
 import secrets
 import logging
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -118,8 +118,9 @@ class Settings(BaseSettings):
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # ==================== API Documentation ====================
-    # SEC-016: Default to disabled; explicitly enable via env var
-    ENABLE_API_DOCS: bool = False
+    # SEC-016: Disabled in production; auto-enabled in development
+    # Can be explicitly overridden via ENABLE_API_DOCS env var
+    ENABLE_API_DOCS: Optional[bool] = None
 
     @property
     def is_development(self) -> bool:
@@ -153,9 +154,9 @@ class Settings(BaseSettings):
                     "WARNING: SQLite is not recommended for production. "
                     "Consider using PostgreSQL: DATABASE_URL=postgresql+asyncpg://user:pass@host/db"
                 )
-            if self.ENABLE_API_DOCS:
+            if self.ENABLE_API_DOCS is True:
                 logger.warning(
-                    "WARNING: API documentation is enabled in production. "
+                    "WARNING: API documentation is explicitly enabled in production. "
                     "Set ENABLE_API_DOCS=false unless intentionally exposing docs."
                 )
             if self.RELOAD:

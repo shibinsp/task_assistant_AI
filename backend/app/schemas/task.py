@@ -67,9 +67,35 @@ class TaskStatusUpdate(BaseModel):
     blocker_type: Optional[BlockerType] = None
     blocker_description: Optional[str] = None
 
-    @field_validator('blocker_type', 'blocker_description')
+    @field_validator('status', mode='before')
     @classmethod
-    def validate_blocker_fields(cls, v, info):
+    def normalize_status(cls, v):
+        """Accept common aliases for task statuses."""
+        if isinstance(v, str):
+            aliases = {
+                "completed": "done",
+                "complete": "done",
+                "in-progress": "in_progress",
+                "inprogress": "in_progress",
+            }
+            v = aliases.get(v.lower(), v)
+        return v
+
+    @field_validator('blocker_type', mode='before')
+    @classmethod
+    def normalize_blocker_type(cls, v):
+        """Accept common aliases for blocker types."""
+        if isinstance(v, str):
+            aliases = {
+                "external_dependency": "dependency",
+                "external": "dependency",
+            }
+            v = aliases.get(v.lower(), v)
+        return v
+
+    @field_validator('blocker_description')
+    @classmethod
+    def validate_blocker_description(cls, v, info):
         return v
 
 

@@ -849,8 +849,9 @@ class AIService:
         self._init_provider()
 
     def _init_provider(self):
-        """Initialize the appropriate AI provider."""
+        """Initialize the appropriate AI provider with graceful fallback."""
         provider = settings.AI_PROVIDER.lower()
+        self._fallback = MockAIProvider()
 
         if provider == AIProvider.OLLAMA.value:
             self.provider = OllamaAIProvider()
@@ -898,10 +899,16 @@ class AIService:
             if cached:
                 return cached
 
-        # Generate response
-        response = await self.provider.generate(
-            prompt, system_prompt, temperature, max_tokens
-        )
+        # Generate response — with graceful fallback if provider is unreachable
+        try:
+            response = await self.provider.generate(
+                prompt, system_prompt, temperature, max_tokens
+            )
+        except Exception as e:
+            logger.warning(f"Primary AI provider failed ({self.provider.provider}): {e}. Falling back to mock.")
+            response = await self._fallback.generate(
+                prompt, system_prompt, temperature, max_tokens
+            )
 
         # Cache response
         if use_cache:
@@ -919,9 +926,15 @@ class AIService:
         include_skill_requirements: bool = True
     ) -> Dict[str, Any]:
         """Decompose a task into subtasks using AI."""
-        return await self.provider.decompose_task(
-            title, description, goal, max_subtasks
-        )
+        try:
+            return await self.provider.decompose_task(
+                title, description, goal, max_subtasks
+            )
+        except Exception as e:
+            logger.warning(f"Primary AI provider failed for decompose_task: {e}. Falling back to mock.")
+            return await self._fallback.decompose_task(
+                title, description, goal, max_subtasks
+            )
 
     async def get_unblock_suggestion(
         self,
@@ -933,11 +946,19 @@ class AIService:
         context: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """Get AI-powered suggestion to unblock a task."""
-        return await self.provider.get_unblock_suggestion(
-            task_title, task_description,
-            blocker_type, blocker_description,
-            user_skill_level
-        )
+        try:
+            return await self.provider.get_unblock_suggestion(
+                task_title, task_description,
+                blocker_type, blocker_description,
+                user_skill_level
+            )
+        except Exception as e:
+            logger.warning(f"Primary AI provider failed for unblock: {e}. Falling back to mock.")
+            return await self._fallback.get_unblock_suggestion(
+                task_title, task_description,
+                blocker_type, blocker_description,
+                user_skill_level
+            )
 
     async def infer_skills(
         self,
@@ -945,7 +966,11 @@ class AIService:
         task_description: str
     ) -> List[Dict[str, Any]]:
         """Infer skills from task using AI."""
-        return await self.provider.infer_skills(task_title, task_description)
+        try:
+            return await self.provider.infer_skills(task_title, task_description)
+        except Exception as e:
+            logger.warning(f"Primary AI provider failed for infer_skills: {e}. Falling back to mock.")
+            return await self._fallback.infer_skills(task_title, task_description)
 
     async def analyze_sentiment(self, text: str) -> Dict[str, Any]:
         """Analyze sentiment of text (e.g., check-in responses)."""

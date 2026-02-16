@@ -85,12 +85,17 @@ class TaskService:
         self,
         task_id: str,
         org_id: str,
-        include_subtasks: bool = False
+        include_subtasks: bool = False,
+        include_archived: bool = False
     ) -> Optional[Task]:
-        """Get a task by ID."""
+        """Get a task by ID. Excludes archived (soft-deleted) tasks by default."""
         query = select(Task).where(
             and_(Task.id == task_id, Task.org_id == org_id)
         )
+
+        # Exclude archived/soft-deleted tasks unless explicitly requested
+        if not include_archived:
+            query = query.where(Task.status != TaskStatus.ARCHIVED)
 
         if include_subtasks:
             query = query.options(selectinload(Task.subtasks))
@@ -270,7 +275,7 @@ class TaskService:
         hard_delete: bool = False
     ) -> bool:
         """Delete or archive a task."""
-        task = await self.get_task_by_id(task_id, org_id, include_subtasks=True)
+        task = await self.get_task_by_id(task_id, org_id, include_subtasks=True, include_archived=True)
         if not task:
             raise NotFoundException("Task", task_id)
 

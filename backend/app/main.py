@@ -85,10 +85,12 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete")
 
 
-# SEC-016: API docs controlled by explicit ENABLE_API_DOCS setting
-_docs_url = "/docs" if settings.ENABLE_API_DOCS else None
-_redoc_url = "/redoc" if settings.ENABLE_API_DOCS else None
-_openapi_url = "/openapi.json" if settings.ENABLE_API_DOCS else None
+# SEC-016: API docs auto-enabled in development, disabled in production.
+# Can be explicitly overridden via ENABLE_API_DOCS env var.
+_enable_docs = settings.ENABLE_API_DOCS if settings.ENABLE_API_DOCS is not None else (not settings.is_production)
+_docs_url = "/docs" if _enable_docs else None
+_redoc_url = "/redoc" if _enable_docs else None
+_openapi_url = "/openapi.json" if _enable_docs else None
 
 # Create FastAPI application
 app = FastAPI(
@@ -155,7 +157,7 @@ async def root():
         "version": settings.APP_VERSION,
         "description": settings.APP_DESCRIPTION,
         "status": "running",
-        "docs": "/docs" if settings.ENABLE_API_DOCS else "disabled",
+        "docs": "/docs" if _enable_docs else "disabled",
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -234,7 +236,7 @@ async def api_v1_info():
     return {
         "version": "1.0.0",
         "status": "active",
-        "documentation": "/docs" if settings.ENABLE_API_DOCS else "disabled",
+        "documentation": "/docs" if _enable_docs else "disabled",
         "endpoints": {
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",
