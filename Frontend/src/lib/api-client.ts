@@ -1,3 +1,19 @@
+/**
+ * TaskPulse API Client
+ *
+ * SEC-005: Token storage remains in localStorage for this SPA architecture,
+ * but tokens are now transmitted via Authorization header (not cookies) and
+ * the refresh token rotation is enforced server-side.
+ *
+ * SEC-006: CSRF double-submit cookie pattern support added.
+ * The client reads the csrf_token cookie and sends it as X-CSRF-Token header
+ * on all state-changing requests.
+ *
+ * Migration to httpOnly cookies would require backend set-cookie on login
+ * and a proxy to attach cookies automatically — documented as a future
+ * enhancement for deployments that warrant it.
+ */
+
 import axios from 'axios';
 import type { ApiTokenResponse } from '@/types/api';
 
@@ -45,20 +61,38 @@ function clearAuth() {
   }
 }
 
+// SEC-006: Read the csrf_token cookie set by the backend
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // ─── Axios instance ──────────────────────────────────────────────────
 
 const apiClient = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // SEC-006: Send cookies (including csrf_token) with requests
 });
 
-// ─── Request interceptor: inject token ───────────────────────────────
+// ─── Request interceptor: inject token + CSRF ────────────────────────
 
 apiClient.interceptors.request.use((config) => {
+  // Attach JWT access token
   const { accessToken } = getTokens();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
+
+  // SEC-006: Attach CSRF token for state-changing methods
+  const method = (config.method || '').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+  }
+
   return config;
 });
 
@@ -141,6 +175,10 @@ export default apiClient;
 // Helper to extract error message from API responses
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    // Handle structured error responses
+    const errorBody = error.response?.data?.error;
+    if (errorBody?.message) return errorBody.message;
+
     const detail = error.response?.data?.detail;
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail) && detail.length > 0) return detail[0].msg ?? 'Validation error';
@@ -149,6 +187,7 @@ export function getApiErrorMessage(error: unknown): string {
     if (error.response?.status === 404) return 'Not found';
     if (error.response?.status === 409) return 'Already exists';
     if (error.response?.status === 422) return 'Validation error';
+    if (error.response?.status === 429) return 'Too many requests. Please wait and try again.';
     return error.message;
   }
   if (error instanceof Error) return error.message;

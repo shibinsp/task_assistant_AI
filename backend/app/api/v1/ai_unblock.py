@@ -256,11 +256,38 @@ async def upload_document(
     service: UnblockService = Depends(get_unblock_service)
 ):
     """Upload a file to knowledge base."""
+    from app.config import settings as app_settings
+    import os
+
     if not has_permission(current_user.role, Permission.AI_MANAGE_KNOWLEDGE_BASE):
         raise ForbiddenException("Not authorized to upload documents")
 
-    # Read file content
+    # SEC-007: Validate file extension against allowlist
+    filename = file.filename or ""
+    file_ext = os.path.splitext(filename)[1].lower()
+    if file_ext not in app_settings.ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"File type '{file_ext}' is not allowed. "
+                f"Supported extensions: {', '.join(app_settings.ALLOWED_UPLOAD_EXTENSIONS)}"
+            )
+        )
+
+    # SEC-007: Read file content with size enforcement
     content = await file.read()
+
+    if len(content) > app_settings.max_upload_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Maximum size is {app_settings.MAX_UPLOAD_SIZE_MB}MB."
+        )
+
+    if len(content) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty."
+        )
 
     # Decode based on file type
     try:

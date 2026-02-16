@@ -3,9 +3,18 @@ TaskPulse - AI Assistant - Configuration Management
 Handles all application settings using Pydantic Settings
 """
 
+import secrets
+import logging
 from functools import lru_cache
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# SEC-001: Generate a random SECRET_KEY at startup if none is provided via env.
+# This ensures no hardcoded default is ever used. In production, always set
+# SECRET_KEY via environment variable for persistence across restarts.
+_GENERATED_SECRET_KEY = secrets.token_urlsafe(64)
 
 
 class Settings(BaseSettings):
@@ -31,7 +40,7 @@ class Settings(BaseSettings):
     # ==================== Server ====================
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    RELOAD: bool = True
+    RELOAD: bool = False  # SEC-015: Default to False; enable explicitly in dev
     WORKERS: int = 1
 
     # ==================== Database ====================
@@ -39,7 +48,8 @@ class Settings(BaseSettings):
     DATABASE_ECHO: bool = False  # Set to True to see SQL queries
 
     # ==================== Security ====================
-    SECRET_KEY: str = "your-super-secret-key-change-in-production-min-32-chars"
+    # SEC-001: No hardcoded secret. Random key generated per startup if env var is missing.
+    SECRET_KEY: str = _GENERATED_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -47,8 +57,12 @@ class Settings(BaseSettings):
     # ==================== CORS ====================
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080", "http://127.0.0.1:3000"]
     CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_METHODS: list[str] = ["*"]
-    CORS_ALLOW_HEADERS: list[str] = ["*"]
+    # SEC-012: Restrict CORS methods and headers to only what's needed
+    CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    CORS_ALLOW_HEADERS: list[str] = [
+        "Authorization", "Content-Type", "Accept", "Origin",
+        "X-Request-ID", "X-CSRF-Token"
+    ]
 
     # ==================== AI Configuration ====================
     AI_PROVIDER: Literal["mock", "openai", "anthropic", "mistral", "kimi", "ollama"] = "mock"
@@ -65,6 +79,7 @@ class Settings(BaseSettings):
     AI_MAX_TOKENS: int = 4096
     AI_TEMPERATURE: float = 0.7
     AI_CACHE_TTL: int = 3600  # Cache TTL in seconds
+    AI_CACHE_MAX_SIZE: int = 1000  # SEC-010: Maximum number of cached AI responses
 
     # ==================== Check-In Engine ====================
     DEFAULT_CHECKIN_INTERVAL_HOURS: int = 3
@@ -75,6 +90,10 @@ class Settings(BaseSettings):
     # ==================== Rate Limiting ====================
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_AUTH_REQUESTS: int = 10  # Stricter limit for auth endpoints
+    RATE_LIMIT_AUTH_WINDOW_SECONDS: int = 60
+    RATE_LIMIT_AI_REQUESTS: int = 30  # Limit for AI endpoints
+    RATE_LIMIT_AI_WINDOW_SECONDS: int = 60
 
     # ==================== Pagination ====================
     DEFAULT_PAGE_SIZE: int = 20
@@ -98,6 +117,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+    # ==================== API Documentation ====================
+    # SEC-016: Default to disabled; explicitly enable via env var
+    ENABLE_API_DOCS: bool = False
+
     @property
     def is_development(self) -> bool:
         return self.ENVIRONMENT == "development"
@@ -106,18 +129,37 @@ class Settings(BaseSettings):
     def is_production(self) -> bool:
         return self.ENVIRONMENT == "production"
 
+    @property
+    def max_upload_size_bytes(self) -> int:
+        """Return max upload size in bytes."""
+        return self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
     def validate_production_settings(self) -> None:
         """Validate that production-critical settings are properly configured."""
         if self.is_production:
-            if self.SECRET_KEY == "your-super-secret-key-change-in-production-min-32-chars":
+            # SEC-001: Reject startup if SECRET_KEY wasn't explicitly set in production
+            if self.SECRET_KEY == _GENERATED_SECRET_KEY:
                 raise ValueError(
-                    "CRITICAL: SECRET_KEY must be changed in production! "
+                    "CRITICAL: SECRET_KEY must be explicitly set via environment variable in production! "
                     "Generate a secure key with: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
                 )
             if len(self.SECRET_KEY) < 32:
                 raise ValueError("SECRET_KEY must be at least 32 characters in production")
             if self.DEBUG:
                 raise ValueError("DEBUG must be False in production")
+            # SEC-017: Warn if using SQLite in production
+            if "sqlite" in self.DATABASE_URL.lower():
+                logger.warning(
+                    "WARNING: SQLite is not recommended for production. "
+                    "Consider using PostgreSQL: DATABASE_URL=postgresql+asyncpg://user:pass@host/db"
+                )
+            if self.ENABLE_API_DOCS:
+                logger.warning(
+                    "WARNING: API documentation is enabled in production. "
+                    "Set ENABLE_API_DOCS=false unless intentionally exposing docs."
+                )
+            if self.RELOAD:
+                raise ValueError("RELOAD must be False in production")
 
 
 @lru_cache()

@@ -78,11 +78,11 @@ class AuthService:
             org = await self._get_organization_by_id(user_data.org_id)
             if not org:
                 raise NotFoundException("Organization", user_data.org_id)
-            role = UserRole.EMPLOYEE
+            role = user_data.role or UserRole.EMPLOYEE
         elif user_data.org_name:
             # Create new organization
             org = await self._create_organization(user_data.org_name)
-            role = UserRole.ORG_ADMIN  # Creator becomes admin
+            role = user_data.role or UserRole.ORG_ADMIN  # Creator becomes admin if no role specified
         else:
             raise ValidationException(
                 "Either org_name (for new org) or org_id (to join) is required"
@@ -533,7 +533,14 @@ class AuthService:
         return result.scalar_one_or_none()
 
     async def _record_failed_login(self, user: User) -> None:
-        """Record failed login attempt and implement account lockout."""
+        """
+        SEC-014: Record failed login attempt and implement progressive account lockout.
+
+        Lockout schedule:
+        - 5 failed attempts  → 15 minute lockout
+        - 10 failed attempts → 1 hour lockout
+        - 15+ failed attempts → 4 hour lockout
+        """
         try:
             attempts = int(user.failed_login_attempts or "0")
         except ValueError:
@@ -542,12 +549,19 @@ class AuthService:
         attempts += 1
         user.failed_login_attempts = str(attempts)
 
-        # Implement progressive lockout after 5 failed attempts
-        if attempts >= 5:
-            # Lock account for 15 minutes
+        # Progressive lockout based on attempt count
+        if attempts >= 15:
+            lockout_duration = timedelta(hours=4)
+        elif attempts >= 10:
+            lockout_duration = timedelta(hours=1)
+        elif attempts >= 5:
             lockout_duration = timedelta(minutes=15)
+        else:
+            lockout_duration = None
+
+        if lockout_duration:
             user.lockout_until = datetime.utcnow() + lockout_duration
             logger.warning(
                 f"Account locked for user {user.email} after {attempts} failed attempts. "
-                f"Locked until {user.lockout_until}"
+                f"Locked for {lockout_duration}. Unlocks at {user.lockout_until}"
             )

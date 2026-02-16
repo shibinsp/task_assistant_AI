@@ -5,13 +5,18 @@ AI integration with mock responses (switchable to OpenAI/Claude)
 
 import json
 import hashlib
+import logging
 import random
+import re
+from collections import OrderedDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AIProvider(str, Enum):
@@ -37,16 +42,21 @@ class AIResponse:
 
 
 class AICache:
-    """Simple in-memory cache for AI responses."""
+    """
+    In-memory cache for AI responses with LRU eviction and SHA-256 keys.
+    SEC-009: Uses SHA-256 instead of MD5 for cache key generation.
+    SEC-010: Bounded cache with configurable max size and LRU eviction.
+    """
 
-    def __init__(self, ttl_seconds: int = 3600):
-        self._cache: Dict[str, tuple] = {}  # key -> (response, timestamp)
+    def __init__(self, ttl_seconds: int = 3600, max_size: int = 1000):
+        self._cache: OrderedDict[str, tuple] = OrderedDict()
         self.ttl = timedelta(seconds=ttl_seconds)
+        self.max_size = max_size
 
     def _make_key(self, prompt: str, context: str = "") -> str:
-        """Generate cache key from prompt."""
+        """Generate cache key from prompt using SHA-256."""
         content = f"{prompt}:{context}"
-        return hashlib.md5(content.encode()).hexdigest()
+        return hashlib.sha256(content.encode()).hexdigest()
 
     def get(self, prompt: str, context: str = "") -> Optional[AIResponse]:
         """Get cached response if exists and not expired."""
@@ -54,6 +64,8 @@ class AICache:
         if key in self._cache:
             response, timestamp = self._cache[key]
             if datetime.utcnow() - timestamp < self.ttl:
+                # Move to end (most recently used)
+                self._cache.move_to_end(key)
                 response.cached = True
                 return response
             else:
@@ -61,13 +73,54 @@ class AICache:
         return None
 
     def set(self, prompt: str, response: AIResponse, context: str = "") -> None:
-        """Cache a response."""
+        """Cache a response with LRU eviction."""
         key = self._make_key(prompt, context)
+        # If key already exists, remove it first so it goes to end
+        if key in self._cache:
+            del self._cache[key]
         self._cache[key] = (response, datetime.utcnow())
+        # Evict oldest entries if over max size
+        while len(self._cache) > self.max_size:
+            self._cache.popitem(last=False)
 
     def clear(self) -> None:
         """Clear all cached responses."""
         self._cache.clear()
+
+    @property
+    def size(self) -> int:
+        """Return current cache size."""
+        return len(self._cache)
+
+
+# SEC-004: Input sanitization for prompt injection defense
+def sanitize_user_input(text: str, max_length: int = 10000) -> str:
+    """
+    Sanitize user-provided text before including it in AI prompts.
+    Strips control characters and known injection patterns.
+    """
+    if not text:
+        return ""
+
+    # Truncate to max length
+    text = text[:max_length]
+
+    # Remove null bytes and control characters (except newlines and tabs)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+
+    # Strip common prompt injection markers
+    injection_patterns = [
+        r'(?i)ignore\s+(all\s+)?(previous|above|prior)\s+(instructions|prompts|rules)',
+        r'(?i)you\s+are\s+now\s+(a|an|the)\s+',
+        r'(?i)system\s*:\s*',
+        r'(?i)###\s*(system|instruction|override)',
+        r'(?i)<\|?(system|im_start|im_end)\|?>',
+    ]
+
+    for pattern in injection_patterns:
+        text = re.sub(pattern, '[filtered]', text)
+
+    return text.strip()
 
 
 class MockAIProvider:
@@ -349,9 +402,14 @@ Return a JSON object with the following structure:
 }
 Return ONLY valid JSON, no additional text."""
 
-        prompt = f"""Task Title: {title}
-Description: {description}
-{f'Goal: {goal}' if goal else ''}
+        # SEC-004: Sanitize user inputs before including in prompts
+        safe_title = sanitize_user_input(title, max_length=500)
+        safe_description = sanitize_user_input(description, max_length=5000)
+        safe_goal = sanitize_user_input(goal, max_length=1000) if goal else None
+
+        prompt = f"""Task Title: {safe_title}
+Description: {safe_description}
+{f'Goal: {safe_goal}' if safe_goal else ''}
 
 Break this task into up to {max_subtasks} subtasks."""
 
@@ -390,10 +448,16 @@ Return a JSON object with:
 }}
 Return ONLY valid JSON."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
-Blocker Type: {blocker_type}
-Blocker Description: {blocker_description}
+        # SEC-004: Sanitize user inputs before including in prompts
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+        safe_blocker_type = sanitize_user_input(blocker_type, max_length=200)
+        safe_blocker_desc = sanitize_user_input(blocker_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
+Blocker Type: {safe_blocker_type}
+Blocker Description: {safe_blocker_desc}
 
 Provide a suggestion to help unblock this task."""
 
@@ -417,8 +481,12 @@ Return a JSON array of skills:
 [{"skill": "string", "confidence": number (0-1)}]
 Return ONLY valid JSON array."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
+        # SEC-004: Sanitize user inputs
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
 
 What skills are required for this task?"""
 
@@ -509,9 +577,14 @@ Return a JSON object with the following structure:
 }
 Return ONLY valid JSON, no additional text."""
 
-        prompt = f"""Task Title: {title}
-Description: {description}
-{f'Goal: {goal}' if goal else ''}
+        # SEC-004: Sanitize user inputs
+        safe_title = sanitize_user_input(title, max_length=500)
+        safe_description = sanitize_user_input(description, max_length=5000)
+        safe_goal = sanitize_user_input(goal, max_length=1000) if goal else None
+
+        prompt = f"""Task Title: {safe_title}
+Description: {safe_description}
+{f'Goal: {safe_goal}' if safe_goal else ''}
 
 Break this task into up to {max_subtasks} subtasks."""
 
@@ -549,10 +622,16 @@ Return a JSON object with:
 }}
 Return ONLY valid JSON."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
-Blocker Type: {blocker_type}
-Blocker Description: {blocker_description}
+        # SEC-004: Sanitize user inputs
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+        safe_blocker_type = sanitize_user_input(blocker_type, max_length=200)
+        safe_blocker_desc = sanitize_user_input(blocker_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
+Blocker Type: {safe_blocker_type}
+Blocker Description: {safe_blocker_desc}
 
 Provide a suggestion to help unblock this task."""
 
@@ -576,8 +655,11 @@ Return a JSON array of skills:
 [{"skill": "string", "confidence": number (0-1)}]
 Return ONLY valid JSON array."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
 
 What skills are required for this task?"""
 
@@ -664,9 +746,13 @@ Return a JSON object with the following structure:
 }
 Return ONLY valid JSON, no additional text."""
 
-        prompt = f"""Task Title: {title}
-Description: {description}
-{f'Goal: {goal}' if goal else ''}
+        safe_title = sanitize_user_input(title, max_length=500)
+        safe_description = sanitize_user_input(description, max_length=5000)
+        safe_goal = sanitize_user_input(goal, max_length=1000) if goal else None
+
+        prompt = f"""Task Title: {safe_title}
+Description: {safe_description}
+{f'Goal: {safe_goal}' if safe_goal else ''}
 
 Break this task into up to {max_subtasks} subtasks."""
 
@@ -704,10 +790,15 @@ Return a JSON object with:
 }}
 Return ONLY valid JSON."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
-Blocker Type: {blocker_type}
-Blocker Description: {blocker_description}
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+        safe_blocker_type = sanitize_user_input(blocker_type, max_length=200)
+        safe_blocker_desc = sanitize_user_input(blocker_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
+Blocker Type: {safe_blocker_type}
+Blocker Description: {safe_blocker_desc}
 
 Provide a suggestion to help unblock this task."""
 
@@ -731,8 +822,11 @@ Return a JSON array of skills:
 [{"skill": "string", "confidence": number (0-1)}]
 Return ONLY valid JSON array."""
 
-        prompt = f"""Task: {task_title}
-Description: {task_description}
+        safe_title = sanitize_user_input(task_title, max_length=500)
+        safe_description = sanitize_user_input(task_description, max_length=5000)
+
+        prompt = f"""Task: {safe_title}
+Description: {safe_description}
 
 What skills are required for this task?"""
 
@@ -748,7 +842,10 @@ class AIService:
     """Main AI service with provider abstraction and caching."""
 
     def __init__(self):
-        self.cache = AICache(ttl_seconds=settings.AI_CACHE_TTL)
+        self.cache = AICache(
+            ttl_seconds=settings.AI_CACHE_TTL,
+            max_size=settings.AI_CACHE_MAX_SIZE
+        )
         self._init_provider()
 
     def _init_provider(self):
@@ -761,12 +858,28 @@ class AIService:
             self.provider = KimiAIProvider()
         elif provider == AIProvider.MISTRAL.value and settings.MISTRAL_API_KEY:
             self.provider = MistralAIProvider()
-        elif provider == AIProvider.OPENAI.value and settings.OPENAI_API_KEY:
+        elif provider == AIProvider.OPENAI.value:
+            # SEC-013: Raise explicit error instead of silently falling back to mock
+            if settings.OPENAI_API_KEY:
+                raise NotImplementedError(
+                    "OpenAI provider is not yet implemented. "
+                    "Set AI_PROVIDER to 'mock', 'mistral', 'kimi', or 'ollama'."
+                )
+            logger.warning("OpenAI selected but no API key provided, falling back to mock.")
             self.provider = MockAIProvider()
-        elif provider == AIProvider.ANTHROPIC.value and settings.ANTHROPIC_API_KEY:
+        elif provider == AIProvider.ANTHROPIC.value:
+            # SEC-013: Raise explicit error instead of silently falling back to mock
+            if settings.ANTHROPIC_API_KEY:
+                raise NotImplementedError(
+                    "Anthropic provider is not yet implemented. "
+                    "Set AI_PROVIDER to 'mock', 'mistral', 'kimi', or 'ollama'."
+                )
+            logger.warning("Anthropic selected but no API key provided, falling back to mock.")
             self.provider = MockAIProvider()
         else:
             self.provider = MockAIProvider()
+
+        logger.info(f"AI provider initialized: {self.provider.provider} ({self.provider.model})")
 
     async def generate(
         self,

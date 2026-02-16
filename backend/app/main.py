@@ -85,9 +85,15 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown complete")
 
 
+# SEC-016: API docs controlled by explicit ENABLE_API_DOCS setting
+_docs_url = "/docs" if settings.ENABLE_API_DOCS else None
+_redoc_url = "/redoc" if settings.ENABLE_API_DOCS else None
+_openapi_url = "/openapi.json" if settings.ENABLE_API_DOCS else None
+
 # Create FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
+    # SEC-003: Removed false "0% hallucination" claim
     description=f"""
 ## {settings.APP_DESCRIPTION}
 
@@ -96,11 +102,15 @@ task management from passive tracking to active task completion intelligence.
 
 ### Key Features:
 - **Smart Check-In Engine**: Proactive 3-hour check-in loops with friction detection
-- **AI Unblock Engine**: RAG-powered contextual help with 0% hallucination
+- **AI Unblock Engine**: RAG-powered contextual help with source-attributed suggestions
 - **Prediction Engine**: ML-powered delivery forecasting and risk assessment
 - **Skill Graph**: Automatic skill inference and learning velocity tracking
 - **Workforce Intelligence**: Executive-level decision intelligence
 - **Automation Detection**: Identify and automate repetitive work patterns
+
+### Important:
+AI-generated suggestions are provided as assistance and should be verified by users.
+Confidence scores are included with all AI outputs to indicate reliability.
 
 ### Core Philosophy:
 > "No employee should stay stuck for more than 3 hours without intelligent intervention."
@@ -108,9 +118,9 @@ task management from passive tracking to active task completion intelligence.
 ### API Version: v1
     """,
     version=settings.APP_VERSION,
-    docs_url="/docs" if settings.is_development else None,
-    redoc_url="/redoc" if settings.is_development else None,
-    openapi_url="/openapi.json" if settings.is_development else None,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
     lifespan=lifespan
 )
 
@@ -145,7 +155,7 @@ async def root():
         "version": settings.APP_VERSION,
         "description": settings.APP_DESCRIPTION,
         "status": "running",
-        "docs": "/docs" if settings.is_development else "disabled",
+        "docs": "/docs" if settings.ENABLE_API_DOCS else "disabled",
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -166,13 +176,13 @@ async def health_check():
     # Check database connection
     from sqlalchemy import text
     db_status = "healthy"
-    db_error = None
     try:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception as e:
         db_status = "unhealthy"
-        db_error = str(e)
+        # SEC-011: Log the actual error server-side but don't expose it in the response
+        logger.error(f"Health check database error: {str(e)}")
 
     # Overall health
     is_healthy = db_status == "healthy"
@@ -183,11 +193,10 @@ async def health_check():
             "status": "healthy" if is_healthy else "unhealthy",
             "timestamp": datetime.utcnow().isoformat(),
             "version": settings.APP_VERSION,
-            "environment": settings.ENVIRONMENT,
             "components": {
                 "database": {
-                    "status": db_status,
-                    "error": db_error
+                    "status": db_status
+                    # SEC-011: No error details exposed to clients
                 },
                 "ai_provider": {
                     "status": "configured" if settings.AI_PROVIDER != "mock" else "mock",
@@ -225,7 +234,7 @@ async def api_v1_info():
     return {
         "version": "1.0.0",
         "status": "active",
-        "documentation": "/docs",
+        "documentation": "/docs" if settings.ENABLE_API_DOCS else "disabled",
         "endpoints": {
             "auth": "/api/v1/auth",
             "users": "/api/v1/users",

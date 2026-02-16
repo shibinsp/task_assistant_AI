@@ -1,22 +1,223 @@
 """
 TaskPulse - AI Assistant - Middleware
 Custom middleware for request/response processing
+
+Security features:
+- SEC-002: In-memory rate limiting per IP for auth and AI endpoints
+- SEC-006: CSRF protection via double-submit cookie pattern
 """
 
-import time
+import hashlib
+import hmac
 import logging
-from typing import Callable
-from uuid import uuid4
+import secrets
+import time
+from collections import defaultdict
+from typing import Callable, Dict, List, Tuple
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from uuid import uuid4
 
 from app.config import settings
 from app.core.exceptions import TaskPulseException
 
 logger = logging.getLogger(__name__)
 
+
+# ==================== SEC-002: Rate Limiting ====================
+
+class RateLimitStore:
+    """
+    In-memory sliding-window rate limiter keyed by client IP.
+    Stores timestamps of recent requests and evicts stale entries.
+    For production at scale, replace with Redis-backed implementation.
+    """
+
+    def __init__(self):
+        # {key: [timestamps]}
+        self._requests: Dict[str, List[float]] = defaultdict(list)
+
+    def is_rate_limited(self, key: str, max_requests: int, window_seconds: int) -> Tuple[bool, int]:
+        """
+        Check if a key has exceeded the rate limit.
+
+        Returns:
+            Tuple of (is_limited, remaining_requests)
+        """
+        now = time.time()
+        cutoff = now - window_seconds
+
+        # Evict stale timestamps
+        timestamps = self._requests[key]
+        self._requests[key] = [t for t in timestamps if t > cutoff]
+
+        current_count = len(self._requests[key])
+
+        if current_count >= max_requests:
+            return True, 0
+
+        # Record this request
+        self._requests[key].append(now)
+        return False, max_requests - current_count - 1
+
+    def cleanup(self):
+        """Remove keys with no recent timestamps (housekeeping)."""
+        now = time.time()
+        empty_keys = []
+        for key, timestamps in self._requests.items():
+            self._requests[key] = [t for t in timestamps if t > now - 300]
+            if not self._requests[key]:
+                empty_keys.append(key)
+        for key in empty_keys:
+            del self._requests[key]
+
+
+# Singleton rate limiter
+_rate_limiter = RateLimitStore()
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """
+    SEC-002: Rate limiting middleware.
+    Applies stricter limits to auth and AI endpoints.
+    """
+
+    # Paths that get the stricter auth rate limit
+    AUTH_PREFIXES = ("/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/refresh")
+    AI_PREFIXES = ("/api/v1/ai/", "/api/v1/chat")
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Skip rate limiting for health checks and OPTIONS
+        if request.url.path in ("/health", "/api/v1/health") or request.method == "OPTIONS":
+            return await call_next(request)
+
+        client_ip = request.client.host if request.client else "unknown"
+        path = request.url.path
+
+        # Determine rate limit tier
+        if any(path.startswith(p) for p in self.AUTH_PREFIXES):
+            max_req = settings.RATE_LIMIT_AUTH_REQUESTS
+            window = settings.RATE_LIMIT_AUTH_WINDOW_SECONDS
+            tier = "auth"
+        elif any(path.startswith(p) for p in self.AI_PREFIXES):
+            max_req = settings.RATE_LIMIT_AI_REQUESTS
+            window = settings.RATE_LIMIT_AI_WINDOW_SECONDS
+            tier = "ai"
+        else:
+            max_req = settings.RATE_LIMIT_REQUESTS
+            window = settings.RATE_LIMIT_WINDOW_SECONDS
+            tier = "general"
+
+        rate_key = f"{tier}:{client_ip}"
+        is_limited, remaining = _rate_limiter.is_rate_limited(rate_key, max_req, window)
+
+        if is_limited:
+            logger.warning(
+                f"Rate limit exceeded for {client_ip} on {tier} tier (path: {path})"
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": "Too many requests. Please try again later.",
+                    }
+                },
+                headers={
+                    "Retry-After": str(window),
+                    "X-RateLimit-Limit": str(max_req),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(max_req)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
+
+
+# ==================== SEC-006: CSRF Protection ====================
+
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """
+    SEC-006: CSRF protection using double-submit cookie pattern.
+
+    For state-changing requests (POST/PUT/PATCH/DELETE) to API endpoints,
+    the client must send an X-CSRF-Token header that matches the csrf_token cookie.
+
+    Excluded: login, register, token refresh, and WebSocket upgrades.
+    """
+
+    SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+    CSRF_EXEMPT_PATHS = (
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/google",
+        "/health",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+    )
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        path = request.url.path
+
+        # Skip for safe methods, exempt paths, and non-API paths
+        is_safe = request.method in self.SAFE_METHODS
+        is_exempt = any(path.startswith(p) for p in self.CSRF_EXEMPT_PATHS)
+        is_api = path.startswith("/api/")
+        is_websocket = "upgrade" in request.headers.get("connection", "").lower()
+
+        if is_safe or is_exempt or not is_api or is_websocket:
+            response = await call_next(request)
+        else:
+            # Validate CSRF token
+            cookie_token = request.cookies.get("csrf_token")
+            header_token = request.headers.get("X-CSRF-Token")
+
+            if not cookie_token or not header_token:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": {
+                            "code": "CSRF_VALIDATION_FAILED",
+                            "message": "CSRF token missing. Include X-CSRF-Token header.",
+                        }
+                    },
+                )
+
+            if not hmac.compare_digest(cookie_token, header_token):
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": {
+                            "code": "CSRF_VALIDATION_FAILED",
+                            "message": "CSRF token mismatch.",
+                        }
+                    },
+                )
+
+            response = await call_next(request)
+
+        # Always set/refresh the CSRF cookie so the client can read it
+        if not request.cookies.get("csrf_token"):
+            csrf_token = secrets.token_urlsafe(32)
+            response.set_cookie(
+                key="csrf_token",
+                value=csrf_token,
+                httponly=False,  # Must be readable by JS
+                samesite="strict",
+                secure=settings.is_production,
+                max_age=86400,  # 24 hours
+            )
+
+        return response
+
+
+# ==================== Existing Middleware ====================
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
@@ -185,6 +386,9 @@ def setup_middleware(app: FastAPI) -> None:
     Order matters - middleware is executed in reverse order.
     """
     # Add middleware in reverse order of execution
+    # (last added = first executed)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestLoggingMiddleware)
+    app.add_middleware(RateLimitMiddleware)   # SEC-002
+    app.add_middleware(CSRFMiddleware)        # SEC-006
     app.add_middleware(RequestIDMiddleware)

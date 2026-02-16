@@ -4,6 +4,7 @@ Chat API Endpoints
 Real-time chat and conversation management with AI agents.
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -14,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
 from ..v1.dependencies import get_current_active_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -190,7 +193,7 @@ async def send_message(
                 role="assistant",
                 content=error_msg["content"],
                 timestamp=now,
-                metadata={"error": str(e)},
+                metadata={"error": "processing_error"},
             ),
             suggestions=["Show my tasks", "I need help", "What can you do?"],
             actions=[],
@@ -409,7 +412,9 @@ async def websocket_chat(websocket: WebSocket):
     """
     WebSocket endpoint for real-time chat.
 
-    Clients send messages and receive responses in real-time.
+    SEC-008: Requires JWT token authentication on connect.
+    Clients send an initial message with {"token": "<JWT>", ...}.
+    The token is verified before the connection is established.
     """
     await websocket.accept()
 
@@ -417,14 +422,28 @@ async def websocket_chat(websocket: WebSocket):
     conversation_id = None
 
     try:
-        # Expect initial auth message
+        # SEC-008: Expect initial auth message with JWT token
         auth_data = await websocket.receive_json()
-        user_id = auth_data.get("user_id")
+        token = auth_data.get("token")
         conversation_id = auth_data.get("conversation_id") or str(uuid4())
 
+        if not token:
+            await websocket.send_json({"error": "Authentication required. Provide a valid JWT token."})
+            await websocket.close(code=4001)
+            return
+
+        # SEC-008: Verify JWT and extract user identity
+        from ...core.security import verify_token
+        payload = verify_token(token, token_type="access")
+        if not payload:
+            await websocket.send_json({"error": "Invalid or expired token."})
+            await websocket.close(code=4001)
+            return
+
+        user_id = payload.get("sub")
         if not user_id:
-            await websocket.send_json({"error": "Authentication required"})
-            await websocket.close()
+            await websocket.send_json({"error": "Invalid token payload."})
+            await websocket.close(code=4001)
             return
 
         # Track connection
@@ -505,10 +524,10 @@ async def websocket_chat(websocket: WebSocket):
                 })
 
             except Exception as e:
+                logger.error(f"WebSocket chat error for user {user_id}: {str(e)}")
                 await websocket.send_json({
                     "type": "error",
                     "message": "I'm having trouble processing that. Please try again.",
-                    "error": str(e),
                 })
 
     except WebSocketDisconnect:
@@ -522,11 +541,12 @@ async def websocket_chat(websocket: WebSocket):
                 del _active_connections[user_id]
 
     except Exception as e:
-        # Handle other errors
+        # Handle other errors — do not leak exception details to client
+        logger.error(f"WebSocket connection error for user {user_id}: {str(e)}")
         try:
-            await websocket.send_json({"type": "error", "message": str(e)})
+            await websocket.send_json({"type": "error", "message": "Connection error occurred."})
             await websocket.close()
-        except:
+        except Exception:
             pass
 
 
