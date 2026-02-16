@@ -152,7 +152,7 @@ function HeroSection() {
   return (
     <section
       ref={containerRef}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-[85vh] flex items-center justify-center overflow-hidden"
     >
       {/* Background Image */}
       <motion.div
@@ -195,7 +195,7 @@ function HeroSection() {
       {/* Content */}
       <motion.div
         style={{ opacity: springOpacity }}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8"
       >
         <div className="text-center">
           {/* Badge */}
@@ -337,7 +337,7 @@ function FeaturesSection() {
   ];
 
   return (
-    <section id="features" className="py-24 lg:py-32 relative">
+    <section id="features" className="py-16 lg:py-20 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div

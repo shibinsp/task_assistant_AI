@@ -141,30 +141,33 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Link
                 key={item.href}
                 to={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                title={!sidebarOpen ? item.label : undefined}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
+                } ${!sidebarOpen ? 'justify-center' : ''}`}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'group-hover:scale-110'} transition-transform`} />
-                <AnimatePresence>
-                  {sidebarOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: 'auto' }}
-                      exit={{ opacity: 0, width: 0 }}
-                      className="flex items-center gap-2 overflow-hidden whitespace-nowrap"
-                    >
-                      <span className="text-sm font-medium">{item.label}</span>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {sidebarOpen ? (
+                  <motion.div
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="flex items-center gap-2 overflow-hidden whitespace-nowrap"
+                  >
+                    <span className="text-sm font-medium">{item.label}</span>
+                    {item.badge && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                        {item.badge}
+                      </Badge>
+                    )}
+                  </motion.div>
+                ) : (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-foreground text-background text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                    {item.label}
+                  </div>
+                )}
               </Link>
             );
           })}
@@ -174,25 +177,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-3 border-t border-border/50 space-y-1">
           <Link
             to="/settings"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+            title={!sidebarOpen ? 'Settings' : undefined}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
               location.pathname === '/settings'
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
+            } ${!sidebarOpen ? 'justify-center' : ''}`}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
-            <AnimatePresence>
-              {sidebarOpen && (
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: 'auto' }}
-                  exit={{ opacity: 0, width: 0 }}
-                  className="text-sm font-medium whitespace-nowrap overflow-hidden"
-                >
-                  Settings
-                </motion.span>
-              )}
-            </AnimatePresence>
+            {sidebarOpen ? (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="text-sm font-medium whitespace-nowrap overflow-hidden"
+              >
+                Settings
+              </motion.span>
+            ) : (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-foreground text-background text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                Settings
+              </div>
+            )}
           </Link>
 
           <button
