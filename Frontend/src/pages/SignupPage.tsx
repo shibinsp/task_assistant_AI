@@ -11,18 +11,33 @@ import {
   Github,
   Loader2,
   User,
-  Building2
+  Building2,
+  Shield
 } from 'lucide-react';
 
-const GOOGLE_CLIENT_ID = '1058266717863-cajvn6yp11006rd62pl641c1009m50vc.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '1058266717863-cajvn6yp11306rd62pl641c1009m50vc.apps.googleusercontent.com';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
+
+const SIGNUP_ROLES = [
+  { value: 'manager', label: 'Manager', description: 'Manage teams and assign tasks' },
+  { value: 'team_lead', label: 'Team Lead', description: 'Lead a team and track progress' },
+  { value: 'employee', label: 'Employee', description: 'Work on tasks and report progress' },
+  { value: 'viewer', label: 'Viewer', description: 'View tasks and reports (read-only)' },
+];
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -35,6 +50,7 @@ export default function SignupPage() {
     email: '',
     password: '',
     company: '',
+    role: 'employee',
     agreeToTerms: false,
   });
 
@@ -73,10 +89,14 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (step === 1) {
       if (!formData.name || !formData.email) {
-        toast.error('Please fill in all fields');
+        toast.error('Please fill in all required fields');
+        return;
+      }
+      if (!formData.company) {
+        toast.error('Please enter your company name');
         return;
       }
       setStep(2);
@@ -89,13 +109,15 @@ export default function SignupPage() {
     }
 
     try {
-      await signup(formData.email, formData.password, formData.name, formData.company);
+      await signup(formData.email, formData.password, formData.name, formData.company, formData.role);
       toast.success('Account created successfully!');
       navigate('/dashboard');
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
   };
+
+  const selectedRole = SIGNUP_ROLES.find(r => r.value === formData.role);
 
   return (
     <div className="min-h-screen flex">
@@ -121,8 +143,8 @@ export default function SignupPage() {
               {step === 1 ? 'Create your account' : 'Set up your password'}
             </h1>
             <p className="text-muted-foreground">
-              {step === 1 
-                ? 'Start your 14-day free trial today' 
+              {step === 1
+                ? 'Start your 14-day free trial today'
                 : 'Almost there! Create a secure password'}
             </p>
           </div>
@@ -194,7 +216,7 @@ export default function SignupPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company (Optional)</Label>
+                  <Label htmlFor="company">Company</Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
@@ -207,9 +229,42 @@ export default function SignupPage() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10 pointer-events-none" />
+                    <Select
+                      value={formData.role}
+                      onValueChange={(value) => setFormData({ ...formData, role: value })}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SIGNUP_ROLES.map((role) => (
+                          <SelectItem key={role.value} value={role.value}>
+                            <div className="flex flex-col">
+                              <span>{role.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedRole && (
+                    <p className="text-xs text-muted-foreground">{selectedRole.description}</p>
+                  )}
+                </div>
               </>
             ) : (
               <>
+                <div className="rounded-lg border bg-muted/50 p-3 mb-2">
+                  <div className="text-sm text-muted-foreground">Signing up as</div>
+                  <div className="font-medium">{formData.name} &middot; {selectedRole?.label}</div>
+                  <div className="text-sm text-muted-foreground">{formData.email} &middot; {formData.company}</div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
@@ -239,7 +294,7 @@ export default function SignupPage() {
                   <Checkbox
                     id="terms"
                     checked={formData.agreeToTerms}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setFormData({ ...formData, agreeToTerms: checked as boolean })
                     }
                   />
@@ -297,12 +352,12 @@ export default function SignupPage() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="hidden lg:flex flex-1 relative overflow-hidden"
       >
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: 'url(/feature-analytics.jpg)' }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-primary/90 via-primary/80 to-accent-secondary/90" />
-        
+
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
           <div className="mb-8">

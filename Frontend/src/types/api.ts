@@ -17,6 +17,7 @@ export interface ApiUserRegister {
   last_name: string;
   org_name?: string;
   org_id?: string;
+  role?: ApiUserRole;
 }
 
 export interface ApiUserLogin {

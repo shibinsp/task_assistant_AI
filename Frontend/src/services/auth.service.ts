@@ -27,7 +27,8 @@ export const authService = {
     password: string,
     firstName: string,
     lastName: string,
-    orgName?: string
+    orgName?: string,
+    role?: string
   ): Promise<ApiRegisterResponse> {
     const { data } = await apiClient.post<ApiRegisterResponse>('/auth/register', {
       email,
@@ -35,6 +36,7 @@ export const authService = {
       first_name: firstName,
       last_name: lastName,
       org_name: orgName || undefined,
+      role: role || undefined,
     });
     return data;
   },

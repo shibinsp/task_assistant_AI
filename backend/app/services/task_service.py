@@ -75,6 +75,9 @@ class TaskService:
         # Create history entry
         await self._create_history(task.id, created_by, "created")
 
+        # Commit explicitly so the task is visible to subsequent requests
+        # (BaseHTTPMiddleware can delay the post-yield commit in get_db)
+        await self.db.commit()
         await self.db.refresh(task)
         return task
 
@@ -185,6 +188,7 @@ class TaskService:
                     )
 
         await self.db.flush()
+        await self.db.commit()
         await self.db.refresh(task)
         return task
 
@@ -232,6 +236,7 @@ class TaskService:
         )
 
         await self.db.flush()
+        await self.db.commit()
         await self.db.refresh(task)
         return task
 
@@ -277,6 +282,7 @@ class TaskService:
             await self._create_history(task_id, deleted_by, "archived")
 
         await self.db.flush()
+        await self.db.commit()
         return True
 
     # ==================== Subtask Operations ====================

@@ -27,6 +27,15 @@ class UserRegister(UserBase):
     org_name: Optional[str] = Field(None, min_length=2, max_length=255, description="Organization name for new org")
     org_id: Optional[str] = Field(None, description="Organization ID to join existing org")
     invite_code: Optional[str] = Field(None, description="Invitation code")
+    role: Optional[UserRole] = Field(None, description="Desired role (cannot be admin)")
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[UserRole]) -> Optional[UserRole]:
+        """Prevent signup with admin roles."""
+        if v and v in (UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN):
+            raise ValueError("Cannot register as an admin role")
+        return v
 
     @field_validator("password")
     @classmethod

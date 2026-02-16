@@ -21,7 +21,7 @@ interface AuthState {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<void>;
-  signup: (email: string, password: string, name: string, company?: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, company?: string, role?: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: Partial<User>) => void;
 }
@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signup: async (email: string, password: string, name: string, company?: string) => {
+      signup: async (email: string, password: string, name: string, company?: string, role?: string) => {
         set({ isLoading: true });
         try {
           const { firstName, lastName } = splitFullName(name);
@@ -80,7 +80,8 @@ export const useAuthStore = create<AuthState>()(
             password,
             firstName,
             lastName,
-            company || undefined
+            company || undefined,
+            role || undefined
           );
           const frontendUser = mapCurrentUserToFrontend(response.user);
           set({
