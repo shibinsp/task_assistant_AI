@@ -1,0 +1,149 @@
+{
+  "results": [
+    {
+      "step": 1,
+      "name": "Load login page",
+      "status": "PASS",
+      "details": "URL: http://localhost:5173/login"
+    },
+    {
+      "step": 2,
+      "name": "Register user via browser API",
+      "status": "PASS",
+      "details": "User: aitest1771305808@example.com, ID: 491c15c0-2ee..."
+    },
+    {
+      "step": 3,
+      "name": "Navigate to tasks page",
+      "status": "PASS",
+      "details": "URL: http://localhost:5173/tasks"
+    },
+    {
+      "step": 4,
+      "name": "Create task via API",
+      "status": "PASS",
+      "details": "Task ID: c09c1d3b-dca... Title: Implement OAuth2 Authentication Flow"
+    },
+    {
+      "step": 5,
+      "name": "Task visible on Kanban board",
+      "status": "PASS",
+      "details": "Task card found"
+    },
+    {
+      "step": 6,
+      "name": "Task detail panel opened",
+      "status": "PASS",
+      "details": "Sheet/dialog visible"
+    },
+    {
+      "step": 7,
+      "name": "Click Report Blocker button",
+      "status": "PASS",
+      "details": "Blocker form opened"
+    },
+    {
+      "step": 8,
+      "name": "Fill error description",
+      "status": "PASS",
+      "details": "Error: Getting 'TokenExpiredError: jwt expired' when trying to refresh OAuth2 tokens. T..."
+    },
+    {
+      "step": 9,
+      "name": "Submit Report & Get AI Help",
+      "status": "PASS",
+      "details": "Blocker reported, AI help requested"
+    },
+    {
+      "step": 10,
+      "name": "Task status check after blocker",
+      "status": "PASS",
+      "details": "Current status: todo"
+    },
+    {
+      "step": 11,
+      "name": "Add user comment #1",
+      "status": "PASS",
+      "details": "Comment ID: 45e087ff-a1e..."
+    },
+    {
+      "step": 12,
+      "name": "Add user comment #2",
+      "status": "PASS",
+      "details": "Comment ID: aa685145-f2b..."
+    },
+    {
+      "step": 13,
+      "name": "Comments visible in task detail",
+      "status": "PASS",
+      "details": "Comment content found in page"
+    },
+    {
+      "step": 14,
+      "name": "Verify comments via API",
+      "status": "PASS",
+      "details": "Total comments: 2"
+    },
+    {
+      "step": 15,
+      "name": "AI Decompose \u2014 generate subtasks",
+      "status": "PASS",
+      "details": "AI generated 0 subtasks"
+    },
+    {
+      "step": 16,
+      "name": "Verify subtasks via API",
+      "status": "PASS",
+      "details": "Subtasks count: 0"
+    },
+    {
+      "step": 17,
+      "name": "Subtasks visible in task detail UI",
+      "status": "PASS",
+      "details": "Subtask content found in page"
+    },
+    {
+      "step": 18,
+      "name": "Add customization feedback comment",
+      "status": "PASS",
+      "details": "Comment about breaking down PKCE and priority change"
+    },
+    {
+      "step": 19,
+      "name": "Update task from comment feedback",
+      "status": "PASS",
+      "details": "Description updated, hours: 48"
+    },
+    {
+      "step": 20,
+      "name": "Update subtask priority from comment",
+      "status": "WARN",
+      "details": "No 'token refresh' subtask found to update"
+    },
+    {
+      "step": 21,
+      "name": "AI Describe feature",
+      "status": "FAIL",
+      "details": "Locator.click: Timeout 15000ms exceeded.\nCall log:\n  - waiting for locator(\"button:has-text(\\\"AI Describe\\\"), button:has-text(\\\"Generate\\\"), button[title*=\\\"AI\\\" i]\").first\n    - locator resolved to <button type=\"button\" data-size=\"default\" data-state=\"closed\" aria-expanded=\"false\" data-variant=\"outline\" aria-haspopup=\"dialog\" data-slot=\"dialog-trigger\" aria-controls=\"radix-_r_8_\" class=\"inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focu\u2026>\u2026</button>\n  - attempting click action\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" data-slot=\"dialog-overlay\" class=\"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50\"></div> intercepts pointer events\n    - retrying click action\n    - waiting 20ms\n    2 \u00d7 waiting for element to be visible, enabled and stable\n      - element is visible, enabled and stable\n      - scrolling into view if needed\n      - done scrolling\n      - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" data-slot=\"dialog-overlay\" class=\"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50\"></div> intercepts pointer events\n    - retrying click action\n      - waiting 100ms\n    29 \u00d7 waiting for element to be visible, enabled and stable\n       - element is visible, enabled and stable\n       - scrolling into view if needed\n       - done scrolling\n       - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" data-slot=\"dialog-overlay\" class=\"data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50\"></div> intercepts pointer events\n     - retrying click action\n       - waiting 500ms\n"
+    },
+    {
+      "step": 22,
+      "name": "Final task verification",
+      "status": "PASS",
+      "details": "Title: Implement OAuth2 Authentication Flow"
+    },
+    {
+      "step": 23,
+      "name": "Data integrity checks",
+      "status": "PASS",
+      "details": "Passed: comments>=3, hours>=40, desc_has_PKCE"
+    }
+  ],
+  "summary": {
+    "pass": 21,
+    "fail": 1,
+    "warn": 1,
+    "total": 23,
+    "pass_rate": 95.65217391304348
+  }
+}
