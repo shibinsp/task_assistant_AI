@@ -87,7 +87,7 @@ function buildStatCards(stats: ApiCheckInStatistics | undefined): StatCardItem[]
         ? `${Math.round(stats.avg_response_time_minutes)} min`
         : 'N/A',
       icon: Clock,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-amber-500',
       subtitle: `${stats?.expired ?? 0} expired`,
     },
     {

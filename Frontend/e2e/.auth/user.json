@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "g_state",
+      "value": "{\"i_l\":0,\"i_ll\":1772989972423,\"i_b\":\"wPUA4YlNGCE23za3Gr0T7PyBIvZ0tLjQA4K6fYQJvVE\",\"i_e\":{\"enable_itp_optimization\":0}}",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1788541972,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "csrf_token",
+      "value": "NPNYT25gKjYcZNt-1l0hkOx8gbWokUyBVi1rAQloaeE",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1773076373.253339,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "taskpulse-auth",
+          "value": "{\"state\":{\"user\":{\"id\":\"9c7ccf16-9c05-4528-b60f-84d71fe558ff\",\"email\":\"admin@acme.com\",\"name\":\"Sarah Johnson\",\"avatar\":null,\"role\":\"admin\",\"organizationId\":\"ce2937a7-907c-41d6-8727-9ee648f6e3cd\"},\"accessToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5YzdjY2YxNi05YzA1LTQ1MjgtYjYwZi04NGQ3MWZlNTU4ZmYiLCJlbWFpbCI6ImFkbWluQGFjbWUuY29tIiwib3JnX2lkIjoiY2UyOTM3YTctOTA3Yy00MWQ2LTg3MjctOWVlNjQ4ZjZlM2NkIiwicm9sZSI6Im9yZ19hZG1pbiIsImV4cCI6MTc3Mjk5MTc3MywiaWF0IjoxNzcyOTg5OTczLCJ0eXBlIjoiYWNjZXNzIn0.KaBYWAFbBGaZ-WUqHEPZvEY_BQs5SoM-CFElop5GWS0\",\"refreshToken\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5YzdjY2YxNi05YzA1LTQ1MjgtYjYwZi04NGQ3MWZlNTU4ZmYiLCJlbWFpbCI6ImFkbWluQGFjbWUuY29tIiwib3JnX2lkIjoiY2UyOTM3YTctOTA3Yy00MWQ2LTg3MjctOWVlNjQ4ZjZlM2NkIiwicm9sZSI6Im9yZ19hZG1pbiIsImV4cCI6MTc3MzU5NDc3MywiaWF0IjoxNzcyOTg5OTczLCJ0eXBlIjoicmVmcmVzaCJ9._RgTT5YcVqkj2fxgzioreVGebKKRGC96LnPlejhmiag\",\"isAuthenticated\":true,\"isLoading\":false},\"version\":0}"
+        }
+      ]
+    }
+  ]
+}

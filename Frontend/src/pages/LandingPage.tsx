@@ -1,25 +1,102 @@
-import { useEffect, useRef } from 'react';
-import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
-import { 
-  Sparkles, 
-  Zap, 
-  Shield, 
-  BarChart3, 
-  Users, 
+import { useEffect, useRef, useState } from 'react';
+import { motion, useScroll, useTransform, useSpring, useMotionValue, useMotionTemplate } from 'framer-motion';
+import {
+  Sparkles,
+  Zap,
+  Shield,
+  BarChart3,
+  Users,
   Workflow,
   ArrowRight,
   Check,
   Star,
   Play,
   Menu,
-  X
+  X,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useThemeStore, applyTheme } from '@/store/themeStore';
 
-// Navigation Component
+// ─── Floating Glassmorphic Shape ────────────────────────────────────────
+function FloatingShape({
+  className = '',
+  delay = 0,
+  duration = 6,
+  size = 120,
+  gradient = 'from-amber-500/20 to-orange-500/10',
+  blur = 'blur-2xl',
+}: {
+  className?: string;
+  delay?: number;
+  duration?: number;
+  size?: number;
+  gradient?: string;
+  blur?: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 1.2, delay }}
+      className={`absolute pointer-events-none ${className}`}
+    >
+      <motion.div
+        animate={{
+          y: [-20, 20, -20],
+          x: [-10, 10, -10],
+          rotate: [0, 5, -5, 0],
+        }}
+        transition={{
+          duration,
+          repeat: Infinity,
+          ease: 'easeInOut',
+          delay,
+        }}
+        style={{ width: size, height: size }}
+        className={`rounded-3xl bg-gradient-to-br ${gradient} backdrop-blur-sm border border-border/20 ${blur}`}
+      />
+    </motion.div>
+  );
+}
+
+// ─── Theme Toggle Button ────────────────────────────────────────────────
+function ThemeToggle() {
+  const { mode, toggleMode } = useThemeStore();
+  const isDark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={toggleMode}
+      className="relative w-9 h-9 rounded-xl glass-card border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors duration-300"
+      aria-label="Toggle theme"
+    >
+      <motion.div
+        initial={false}
+        animate={{ rotate: isDark ? 180 : 0, scale: isDark ? 0 : 1 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className="absolute"
+      >
+        <Sun className="w-4 h-4" />
+      </motion.div>
+      <motion.div
+        initial={false}
+        animate={{ rotate: isDark ? 0 : -180, scale: isDark ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+        className="absolute"
+      >
+        <Moon className="w-4 h-4" />
+      </motion.div>
+    </motion.button>
+  );
+}
+
+// ─── Navigation ─────────────────────────────────────────────────────────
 function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -44,20 +121,18 @@ function Navigation() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-background/80 backdrop-blur-xl border-b border-border/50' 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        isScrolled
+          ? 'glass-card border-b border-border/50'
           : 'bg-transparent'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-primary to-accent-primary flex items-center justify-center">
-              <Sparkles className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-            </div>
-            <span className="text-lg lg:text-xl font-bold">TaskPulse</span>
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <img src="/beeax-logo.jpeg" alt="TaskPulse" className="w-9 h-9 lg:w-10 lg:h-10 rounded-xl object-cover shadow-lg shadow-amber-600/25 group-hover:shadow-amber-600/40 transition-shadow duration-300" />
+            <span className="text-lg lg:text-xl font-bold tracking-tight">TaskPulse</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -66,33 +141,37 @@ function Navigation() {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-px after:bg-gradient-to-r after:from-amber-600 after:to-orange-500 hover:after:w-full after:transition-all after:duration-300"
               >
                 {link.label}
               </a>
             ))}
           </div>
 
-          {/* CTA Buttons */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* CTA Buttons + Theme Toggle */}
+          <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             <Link to="/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">Sign In</Button>
             </Link>
             <Link to="/signup">
-              <Button size="sm" className="gap-2">
+              <Button size="sm" className="gap-2 bg-gradient-to-r from-amber-700 to-orange-600 hover:from-amber-600 hover:to-orange-500 border-0 text-white shadow-lg shadow-amber-600/25 hover:shadow-amber-600/40 transition-all duration-300">
                 Get Started
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+          {/* Mobile: Theme Toggle + Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Menu */}
@@ -119,7 +198,7 @@ function Navigation() {
                   <Button variant="ghost" className="w-full">Sign In</Button>
                 </Link>
                 <Link to="/signup">
-                  <Button className="w-full gap-2">
+                  <Button className="w-full gap-2 bg-gradient-to-r from-amber-700 to-orange-600 hover:from-amber-600 hover:to-orange-500 border-0 text-white">
                     Get Started
                     <ArrowRight className="w-4 h-4" />
                   </Button>
@@ -133,7 +212,7 @@ function Navigation() {
   );
 }
 
-// Hero Section
+// ─── Hero Section ───────────────────────────────────────────────────────
 function HeroSection() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -149,41 +228,100 @@ function HeroSection() {
   const springOpacity = useSpring(opacity, { stiffness: 100, damping: 30 });
   const springScale = useSpring(scale, { stiffness: 100, damping: 30 });
 
+  // Mouse-tracking glow
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left);
+    mouseY.set(e.clientY - rect.top);
+  };
+
+  const glowBackground = useMotionTemplate`radial-gradient(600px circle at ${mouseX}px ${mouseY}px, hsl(var(--primary) / 0.06), transparent 80%)`;
+
   return (
     <section
       ref={containerRef}
-      className="relative min-h-[85vh] flex items-center justify-center overflow-hidden"
+      onMouseMove={handleMouseMove}
+      className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {/* Background Image */}
+      {/* Animated Mesh Gradient Background */}
       <motion.div
         style={{ y: springY, scale: springScale }}
         className="absolute inset-0 z-0"
       >
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/hero-bg-1.jpg)' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/50 via-transparent to-background/50" />
+        <div className="absolute inset-0 mesh-gradient" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/30 to-background" />
       </motion.div>
 
+      {/* Mouse-tracking glow */}
+      <motion.div
+        style={{ background: glowBackground }}
+        className="absolute inset-0 z-[1] pointer-events-none"
+      />
+
+      {/* Floating Glassmorphic Shapes */}
+      <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none">
+        <FloatingShape
+          className="top-[15%] left-[8%]"
+          size={180}
+          gradient="from-amber-500/15 to-yellow-500/10"
+          delay={0}
+          duration={7}
+          blur="blur-xl"
+        />
+        <FloatingShape
+          className="top-[10%] right-[12%]"
+          size={140}
+          gradient="from-orange-500/12 to-amber-500/8"
+          delay={1}
+          duration={8}
+          blur="blur-2xl"
+        />
+        <FloatingShape
+          className="bottom-[20%] left-[15%]"
+          size={100}
+          gradient="from-teal-500/10 to-cyan-500/8"
+          delay={2}
+          duration={6}
+          blur="blur-xl"
+        />
+        <FloatingShape
+          className="bottom-[15%] right-[8%]"
+          size={160}
+          gradient="from-yellow-500/12 to-amber-500/8"
+          delay={0.5}
+          duration={9}
+          blur="blur-2xl"
+        />
+        <FloatingShape
+          className="top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2"
+          size={220}
+          gradient="from-amber-600/8 to-yellow-500/5"
+          delay={1.5}
+          duration={10}
+          blur="blur-3xl"
+        />
+      </div>
+
       {/* Animated Particles */}
-      <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+      <div className="absolute inset-0 z-[3] overflow-hidden pointer-events-none">
+        {[...Array(30)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute w-1 h-1 bg-primary/30 rounded-full"
+            className="absolute w-[2px] h-[2px] rounded-full bg-amber-500/30 dark:bg-amber-400/40"
             initial={{
-              x: Math.random() * 100 + '%',
-              y: Math.random() * 100 + '%',
+              x: `${Math.random() * 100}%`,
+              y: `${Math.random() * 100}%`,
               scale: Math.random() * 0.5 + 0.5,
             }}
             animate={{
-              y: [null, '-10%'],
-              opacity: [0, 1, 0],
+              y: [null, '-15%'],
+              opacity: [0, 0.8, 0],
             }}
             transition={{
-              duration: Math.random() * 5 + 5,
+              duration: Math.random() * 6 + 4,
               repeat: Infinity,
               delay: Math.random() * 5,
               ease: 'linear',
@@ -195,7 +333,7 @@ function HeroSection() {
       {/* Content */}
       <motion.div
         style={{ opacity: springOpacity }}
-        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-8"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12"
       >
         <div className="text-center">
           {/* Badge */}
@@ -204,9 +342,9 @@ function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Badge 
-              variant="secondary" 
-              className="mb-6 px-4 py-2 text-sm bg-primary/10 text-primary border-primary/20 backdrop-blur-sm"
+            <Badge
+              variant="secondary"
+              className="mb-8 px-5 py-2.5 text-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 backdrop-blur-sm"
             >
               <Sparkles className="w-4 h-4 mr-2" />
               AI-Powered Task Management
@@ -218,10 +356,10 @@ function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-8"
           >
-            <span className="block">Work Smarter with</span>
-            <span className="block gradient-text mt-2">Intelligent Automation</span>
+            <span className="block text-foreground">Work Smarter with</span>
+            <span className="block gradient-text mt-2 pb-2">Intelligent Automation</span>
           </motion.h1>
 
           {/* Subheading */}
@@ -229,9 +367,9 @@ function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
+            className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed"
           >
-            TaskPulse AI transforms how teams work. Automate workflows, predict bottlenecks, 
+            TaskPulse AI transforms how teams work. Automate workflows, predict bottlenecks,
             and achieve more with AI-powered task management that learns and adapts.
           </motion.p>
 
@@ -243,12 +381,12 @@ function HeroSection() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <Link to="/signup">
-              <Button size="lg" className="gap-2 text-base px-8">
+              <Button size="lg" className="gap-2 text-base px-8 bg-gradient-to-r from-amber-700 to-orange-600 hover:from-amber-600 hover:to-orange-500 border-0 text-white shadow-xl shadow-amber-600/25 hover:shadow-amber-600/40 transition-all duration-300 hover:scale-105">
                 Start Free Trial
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="gap-2 text-base px-8 glass-card">
+            <Button size="lg" variant="outline" className="gap-2 text-base px-8 glass-card border-border/50 hover:border-primary/30 transition-all duration-300">
               <Play className="w-5 h-5" />
               Watch Demo
             </Button>
@@ -258,8 +396,8 @@ function HeroSection() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-            className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8"
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8"
           >
             {[
               { value: '10K+', label: 'Active Teams' },
@@ -267,10 +405,14 @@ function HeroSection() {
               { value: '99.9%', label: 'Uptime' },
               { value: '4.9/5', label: 'User Rating' },
             ].map((stat, index) => (
-              <div key={index} className="text-center">
+              <motion.div
+                key={index}
+                whileHover={{ scale: 1.05 }}
+                className="text-center p-4 rounded-2xl glass-card border border-border/30"
+              >
                 <div className="text-2xl sm:text-3xl font-bold gradient-text">{stat.value}</div>
                 <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-              </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>
@@ -280,7 +422,7 @@ function HeroSection() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
+        transition={{ delay: 1.2 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
       >
         <motion.div
@@ -288,21 +430,21 @@ function HeroSection() {
           transition={{ duration: 1.5, repeat: Infinity }}
           className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex items-start justify-center p-2"
         >
-          <motion.div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+          <motion.div className="w-1.5 h-1.5 rounded-full bg-amber-500/60" />
         </motion.div>
       </motion.div>
     </section>
   );
 }
 
-// Features Section
+// ─── Features Section ───────────────────────────────────────────────────
 function FeaturesSection() {
   const features = [
     {
       icon: <Sparkles className="w-6 h-6" />,
       title: 'AI-Powered Insights',
       description: 'Get intelligent recommendations and predictions to optimize your workflow and prevent bottlenecks before they happen.',
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-yellow-600',
     },
     {
       icon: <Workflow className="w-6 h-6" />,
@@ -337,23 +479,29 @@ function FeaturesSection() {
   ];
 
   return (
-    <section id="features" className="py-16 lg:py-20 relative">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-24 lg:py-32 relative">
+      {/* Background Glowing Orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-500/[0.04] rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/[0.04] rounded-full blur-3xl" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-20"
         >
-          <Badge variant="outline" className="mb-4">Features</Badge>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+          <Badge variant="outline" className="mb-4 border-amber-500/30 text-amber-700 dark:text-amber-300">Features</Badge>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
             Everything you need to{' '}
             <span className="gradient-text">ship faster</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Powerful features designed for modern teams. From AI automation to real-time collaboration, 
+            Powerful features designed for modern teams. From AI automation to real-time collaboration,
             TaskPulse has everything you need.
           </p>
         </motion.div>
@@ -370,20 +518,23 @@ function FeaturesSection() {
               whileHover={{ y: -8, transition: { duration: 0.2 } }}
               className="group relative"
             >
-              <div className="relative p-6 lg:p-8 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/5">
+              <div className="relative p-6 lg:p-8 rounded-2xl glass-card border border-border/30 hover:border-primary/30 transition-all duration-500 hover:shadow-2xl hover:shadow-amber-500/[0.08] overflow-hidden">
+                {/* Gradient border on hover */}
+                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-amber-500/10 via-transparent to-orange-500/10 pointer-events-none" />
+
                 {/* Icon */}
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-white mb-5 group-hover:scale-110 transition-transform duration-300`}>
+                <div className={`relative w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-white mb-5 group-hover:scale-110 group-hover:shadow-lg transition-all duration-300`}>
                   {feature.icon}
                 </div>
 
                 {/* Content */}
-                <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">
+                <h3 className="text-xl font-semibold mb-3 relative">{feature.title}</h3>
+                <p className="text-muted-foreground leading-relaxed relative">
                   {feature.description}
                 </p>
 
                 {/* Hover Glow */}
-                <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300 -z-10 blur-xl`} />
+                <div className={`absolute -bottom-8 -right-8 w-40 h-40 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-[0.07] transition-opacity duration-500 blur-3xl rounded-full`} />
               </div>
             </motion.div>
           ))}
@@ -393,7 +544,7 @@ function FeaturesSection() {
   );
 }
 
-// How It Works Section
+// ─── How It Works ───────────────────────────────────────────────────────
 function HowItWorksSection() {
   const steps = [
     {
@@ -419,7 +570,7 @@ function HowItWorksSection() {
   return (
     <section id="how-it-works" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-500/[0.03] to-transparent" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Section Header */}
@@ -430,7 +581,7 @@ function HowItWorksSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <Badge variant="outline" className="mb-4">How It Works</Badge>
+          <Badge variant="outline" className="mb-4 border-amber-500/30 text-amber-700 dark:text-amber-300">How It Works</Badge>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Get started in{' '}
             <span className="gradient-text">three simple steps</span>
@@ -449,13 +600,11 @@ function HowItWorksSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
-                index % 2 === 1 ? 'lg:flex-row-reverse' : ''
-              }`}
+              className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center`}
             >
               {/* Content */}
               <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
-                <div className="text-6xl lg:text-8xl font-bold text-primary/10 mb-4">
+                <div className="text-6xl lg:text-8xl font-bold gradient-text opacity-30 mb-4">
                   {step.number}
                 </div>
                 <h3 className="text-2xl lg:text-3xl font-bold mb-4">{step.title}</h3>
@@ -469,14 +618,14 @@ function HowItWorksSection() {
                 <motion.div
                   whileHover={{ scale: 1.02 }}
                   transition={{ duration: 0.3 }}
-                  className="relative rounded-2xl overflow-hidden shadow-2xl"
+                  className="relative rounded-2xl overflow-hidden shadow-2xl shadow-amber-600/10 border border-border/30"
                 >
                   <img
                     src={step.image}
                     alt={step.title}
                     className="w-full aspect-video object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/50 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/60 to-transparent" />
                 </motion.div>
               </div>
             </motion.div>
@@ -487,7 +636,7 @@ function HowItWorksSection() {
   );
 }
 
-// Pricing Section
+// ─── Pricing Section ────────────────────────────────────────────────────
 function PricingSection() {
   const plans = [
     {
@@ -551,7 +700,7 @@ function PricingSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <Badge variant="outline" className="mb-4">Pricing</Badge>
+          <Badge variant="outline" className="mb-4 border-amber-500/30 text-amber-700 dark:text-amber-300">Pricing</Badge>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Simple, transparent{' '}
             <span className="gradient-text">pricing</span>
@@ -566,31 +715,31 @@ function PricingSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="flex items-center justify-center gap-4 mb-12"
+          className="flex items-center justify-center gap-4 mb-16"
         >
-          <span className={`text-sm ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>
+          <span className={`text-sm transition-colors ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>
             Monthly
           </span>
           <button
             onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annually' : 'monthly')}
-            className="relative w-14 h-7 rounded-full bg-primary/20 transition-colors"
+            className="relative w-14 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 transition-colors"
           >
             <motion.div
               animate={{ x: billingCycle === 'annually' ? 28 : 2 }}
               transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              className="absolute top-1 w-5 h-5 rounded-full bg-primary"
+              className="absolute top-1 w-5 h-5 rounded-full bg-gradient-to-r from-amber-600 to-orange-500"
             />
           </button>
-          <span className={`text-sm ${billingCycle === 'annually' ? 'text-foreground' : 'text-muted-foreground'}`}>
+          <span className={`text-sm transition-colors ${billingCycle === 'annually' ? 'text-foreground' : 'text-muted-foreground'}`}>
             Annually
           </span>
           {billingCycle === 'annually' && (
-            <Badge variant="secondary" className="text-xs">Save 20%</Badge>
+            <Badge variant="secondary" className="text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Save 20%</Badge>
           )}
         </motion.div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid md:grid-cols-3 gap-6 lg:gap-8 items-start">
           {plans.map((plan, index) => (
             <motion.div
               key={index}
@@ -598,53 +747,60 @@ function PricingSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative rounded-2xl p-6 lg:p-8 ${
-                plan.popular
-                  ? 'bg-gradient-to-b from-primary/10 to-primary/5 border-2 border-primary/50'
-                  : 'bg-card border border-border/50'
-              }`}
+              className={`relative ${plan.popular ? 'md:-mt-4 md:mb-4' : ''}`}
             >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-primary text-primary-foreground">
-                    Most Popular
-                  </Badge>
-                </div>
-              )}
-
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
-              </div>
-
-              <div className="mb-6">
-                {plan.price.monthly !== null ? (
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold">
-                      ${billingCycle === 'monthly' ? plan.price.monthly : plan.price.annually}
-                    </span>
-                    <span className="text-muted-foreground">/month</span>
+              {/* Rotating Border for Pro Card */}
+              <div className={`relative rounded-2xl p-6 lg:p-8 ${
+                plan.popular
+                  ? 'rotating-border z-10'
+                  : 'glass-card border border-border/30'
+              }`}>
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                    <Badge className="bg-gradient-to-r from-amber-700 to-orange-600 text-white border-0 shadow-lg shadow-amber-600/25">
+                      Most Popular
+                    </Badge>
                   </div>
-                ) : (
-                  <div className="text-4xl font-bold">Custom</div>
                 )}
+
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold mb-2">{plan.name}</h3>
+                  <p className="text-sm text-muted-foreground">{plan.description}</p>
+                </div>
+
+                <div className="mb-6">
+                  {plan.price.monthly !== null ? (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold">
+                        ${billingCycle === 'monthly' ? plan.price.monthly : plan.price.annually}
+                      </span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  ) : (
+                    <div className="text-4xl font-bold gradient-text">Custom</div>
+                  )}
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, featureIndex) => (
+                    <li key={featureIndex} className="flex items-start gap-3">
+                      <Check className={`w-5 h-5 flex-shrink-0 mt-0.5 ${plan.popular ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                      <span className="text-sm text-muted-foreground">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <Button
+                  className={`w-full ${
+                    plan.popular
+                      ? 'bg-gradient-to-r from-amber-700 to-orange-600 hover:from-amber-600 hover:to-orange-500 border-0 text-white shadow-lg shadow-amber-600/25 hover:shadow-amber-600/40 transition-all duration-300'
+                      : 'glass-card border border-border/50 hover:border-primary/30'
+                  }`}
+                  variant={plan.popular ? 'default' : 'outline'}
+                >
+                  {plan.cta}
+                </Button>
               </div>
-
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, featureIndex) => (
-                  <li key={featureIndex} className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <span className="text-sm text-muted-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                className="w-full"
-                variant={plan.popular ? 'default' : 'outline'}
-              >
-                {plan.cta}
-              </Button>
             </motion.div>
           ))}
         </div>
@@ -653,7 +809,7 @@ function PricingSection() {
   );
 }
 
-// Testimonials Section
+// ─── Testimonials Section ───────────────────────────────────────────────
 function TestimonialsSection() {
   const testimonials = [
     {
@@ -662,6 +818,7 @@ function TestimonialsSection() {
       role: "VP of Engineering",
       company: "TechCorp",
       avatar: "SC",
+      color: 'from-amber-600 to-yellow-600',
     },
     {
       quote: "The automation features are incredible. We've reduced manual task management by 80% since switching to TaskPulse.",
@@ -669,6 +826,7 @@ function TestimonialsSection() {
       role: "Product Manager",
       company: "StartupXYZ",
       avatar: "MR",
+      color: 'from-blue-500 to-cyan-500',
     },
     {
       quote: "Best task management tool we've ever used. The AI predictions help us stay ahead of deadlines.",
@@ -676,13 +834,14 @@ function TestimonialsSection() {
       role: "Team Lead",
       company: "DesignStudio",
       avatar: "EW",
+      color: 'from-orange-500 to-red-500',
     },
   ];
 
   return (
     <section id="testimonials" className="py-24 lg:py-32 relative overflow-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-primary/5" />
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-500/[0.02] via-transparent to-amber-500/[0.02]" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Section Header */}
@@ -693,7 +852,7 @@ function TestimonialsSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <Badge variant="outline" className="mb-4">Testimonials</Badge>
+          <Badge variant="outline" className="mb-4 border-amber-500/30 text-amber-700 dark:text-amber-300">Testimonials</Badge>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
             Loved by teams{' '}
             <span className="gradient-text">worldwide</span>
@@ -711,28 +870,36 @@ function TestimonialsSection() {
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="relative p-6 lg:p-8 rounded-2xl bg-card border border-border/50"
+              transition={{ duration: 0.5, delay: index * 0.15 }}
+              whileHover={{ y: -6, transition: { duration: 0.2 } }}
+              className="group relative"
             >
-              {/* Stars */}
-              <div className="flex gap-1 mb-4">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-primary text-primary" />
-                ))}
-              </div>
+              <div className="relative p-6 lg:p-8 rounded-2xl glass-card border border-border/30 hover:border-primary/20 transition-all duration-500 overflow-hidden">
+                {/* Ambient glow */}
+                <div className={`absolute -top-12 -right-12 w-32 h-32 bg-gradient-to-br ${testimonial.color} opacity-0 group-hover:opacity-[0.08] transition-opacity duration-500 blur-3xl rounded-full`} />
 
-              {/* Quote */}
-              <p className="text-lg mb-6 leading-relaxed">"{testimonial.quote}"</p>
-
-              {/* Author */}
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                  {testimonial.avatar}
+                {/* Stars */}
+                <div className="flex gap-1 mb-5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-amber-500 text-amber-600 dark:fill-amber-400 dark:text-amber-400" />
+                  ))}
                 </div>
-                <div>
-                  <div className="font-medium">{testimonial.author}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {testimonial.role} at {testimonial.company}
+
+                {/* Quote */}
+                <p className="text-base lg:text-lg mb-8 leading-relaxed text-foreground/90">
+                  &ldquo;{testimonial.quote}&rdquo;
+                </p>
+
+                {/* Author */}
+                <div className="flex items-center gap-4">
+                  <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${testimonial.color} flex items-center justify-center text-sm font-semibold text-white shadow-lg`}>
+                    {testimonial.avatar}
+                  </div>
+                  <div>
+                    <div className="font-medium text-foreground">{testimonial.author}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {testimonial.role} at {testimonial.company}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -744,7 +911,7 @@ function TestimonialsSection() {
   );
 }
 
-// CTA Section
+// ─── CTA Section ────────────────────────────────────────────────────────
 function CTASection() {
   return (
     <section className="py-24 lg:py-32 relative overflow-hidden">
@@ -757,15 +924,21 @@ function CTASection() {
           className="relative rounded-3xl overflow-hidden"
         >
           {/* Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-accent-secondary" />
-          <div className="absolute inset-0 bg-[url('/hero-dashboard.jpg')] opacity-20 mix-blend-overlay" />
-          
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-700 via-orange-600 to-yellow-600" />
+          <div className="absolute inset-0 mesh-gradient opacity-30" />
+
           {/* Pattern */}
-          <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 opacity-[0.07]">
             <div className="absolute inset-0" style={{
               backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
               backgroundSize: '32px 32px',
             }} />
+          </div>
+
+          {/* Floating shapes */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <FloatingShape className="top-[10%] left-[5%]" size={100} gradient="from-white/10 to-white/5" delay={0} duration={6} blur="blur-xl" />
+            <FloatingShape className="bottom-[10%] right-[5%]" size={80} gradient="from-white/10 to-white/5" delay={1} duration={7} blur="blur-xl" />
           </div>
 
           {/* Content */}
@@ -779,12 +952,12 @@ function CTASection() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link to="/signup">
-                <Button size="lg" variant="secondary" className="gap-2 text-base px-8">
+                <Button size="lg" variant="secondary" className="gap-2 text-base px-8 bg-white text-amber-800 hover:bg-white/90 shadow-xl shadow-black/20">
                   Get Started Free
                   <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-white/30 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-white/30 text-white hover:bg-white/10 backdrop-blur-sm">
                 <Play className="w-5 h-5" />
                 Watch Demo
               </Button>
@@ -796,7 +969,7 @@ function CTASection() {
   );
 }
 
-// Footer
+// ─── Footer ─────────────────────────────────────────────────────────────
 function Footer() {
   const footerLinks = {
     Product: ['Features', 'Integrations', 'Pricing', 'Changelog', 'Roadmap'],
@@ -811,23 +984,21 @@ function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12 mb-12">
           {/* Brand */}
           <div className="col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary to-accent-primary flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+            <Link to="/" className="flex items-center gap-2.5 mb-4">
+              <img src="/beeax-logo.jpeg" alt="TaskPulse" className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-amber-600/25" />
               <span className="text-lg font-bold">TaskPulse</span>
             </Link>
             <p className="text-sm text-muted-foreground mb-4 max-w-xs">
               AI-powered task management that helps teams work smarter and ship faster.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               {['Twitter', 'LinkedIn', 'GitHub', 'Discord'].map((social) => (
                 <a
                   key={social}
                   href="#"
-                  className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                  className="w-9 h-9 rounded-lg glass-card border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all duration-300"
                 >
-                  <span className="text-xs">{social[0]}</span>
+                  <span className="text-xs font-medium">{social[0]}</span>
                 </a>
               ))}
             </div>
@@ -836,13 +1007,13 @@ function Footer() {
           {/* Links */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="font-medium mb-4">{category}</h4>
-              <ul className="space-y-2">
+              <h4 className="font-medium mb-4 text-foreground/90">{category}</h4>
+              <ul className="space-y-2.5">
                 {links.map((link) => (
                   <li key={link}>
                     <a
                       href="#"
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
                     >
                       {link}
                     </a>
@@ -856,16 +1027,16 @@ function Footer() {
         {/* Bottom */}
         <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 TaskPulse. All rights reserved.
+            &copy; 2025 TaskPulse. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
               Privacy Policy
             </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
               Terms of Service
             </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200">
               Cookie Settings
             </a>
           </div>
@@ -875,10 +1046,17 @@ function Footer() {
   );
 }
 
-// Main Landing Page
+// ─── Main Landing Page ──────────────────────────────────────────────────
 export default function LandingPage() {
+  const { mode, accent } = useThemeStore();
+
+  // Apply theme on mount and when it changes
+  useEffect(() => {
+    applyTheme(mode, accent);
+  }, [mode, accent]);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <main>
         <HeroSection />

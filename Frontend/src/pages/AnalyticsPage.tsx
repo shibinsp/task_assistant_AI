@@ -90,7 +90,7 @@ export default function AnalyticsPage() {
       change: velocityRaw?.trend ?? 'stable',
       trend: 'up' as const,
       icon: TrendingUp,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-amber-500',
     },
     {
       title: 'Sprint Progress',

@@ -249,16 +249,33 @@ export interface ApiNotificationPreferencesUpdate {
 // ─── Reports / Dashboard ─────────────────────────────────────────────
 
 export interface ApiDashboardMetrics {
-  total_tasks: number;
-  completed_tasks: number;
-  in_progress_tasks: number;
-  blocked_tasks: number;
-  overdue_tasks: number;
-  completion_rate: number;
-  avg_completion_hours: number;
-  tasks_created_this_week: number;
-  tasks_completed_this_week: number;
-  [key: string]: unknown;
+  task_summary?: {
+    by_status?: Record<string, number>;
+    by_priority?: Record<string, number>;
+    total_active?: number;
+    total_completed?: number;
+  };
+  completion_metrics?: {
+    completed_this_week?: number;
+    completed_this_month?: number;
+    on_time_rate?: number;
+    avg_completion_hours?: number;
+  };
+  blocker_analysis?: {
+    total_blocked?: number;
+    by_type?: Record<string, number>;
+    avg_block_duration_hours?: number;
+    critical_blocked?: number;
+  };
+  recent_activity?: Array<{
+    task_id: string;
+    title: string;
+    status: string;
+    updated_at: string;
+    assigned_to?: string;
+  }>;
+  generated_at?: string;
+  [key: string]: any;
 }
 
 export interface ApiVelocityData {
@@ -742,7 +759,7 @@ export interface ApiCheckInConfigCreate {
   ai_sentiment_analysis?: boolean;
 }
 
-export interface ApiCheckInConfigUpdate extends Partial<ApiCheckInConfigCreate> {}
+export interface ApiCheckInConfigUpdate extends Partial<ApiCheckInConfigCreate> { }
 
 export interface ApiCheckInStatistics {
   total_checkins: number;

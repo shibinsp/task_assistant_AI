@@ -64,7 +64,7 @@ const triggerTypes = [
 // Action types
 const actionTypes = [
   { icon: Mail, label: 'Send Email', color: 'bg-blue-500' },
-  { icon: MessageSquare, label: 'Send Slack Message', color: 'bg-purple-500' },
+  { icon: MessageSquare, label: 'Send Slack Message', color: 'bg-amber-500' },
   { icon: CheckSquare, label: 'Create Task', color: 'bg-emerald-500' },
   { icon: Bell, label: 'Send Notification', color: 'bg-amber-500' },
   { icon: GitBranch, label: 'Conditional Logic', color: 'bg-pink-500' },

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type AccentColor = 'indigo' | 'purple' | 'blue' | 'cyan' | 'green' | 'orange' | 'pink';
+export type AccentColor = 'gold' | 'amber' | 'blue' | 'teal' | 'green' | 'orange' | 'olive';
 
 interface ThemeState {
   mode: ThemeMode;
@@ -15,20 +15,20 @@ interface ThemeState {
 }
 
 const accentColors: Record<AccentColor, { primary: string; secondary: string }> = {
-  indigo: { primary: '239 84% 67%', secondary: '244 75% 57%' },
-  purple: { primary: '262.1 83.3% 57.8%', secondary: '263.4 70% 50.4%' },
+  gold: { primary: '44 80% 46%', secondary: '28 80% 52%' },
+  amber: { primary: '44 90% 61%', secondary: '43 89% 38%' },
   blue: { primary: '217.2 91.2% 59.8%', secondary: '221.2 83.2% 53.3%' },
-  cyan: { primary: '189.4 94.5% 43.1%', secondary: '192.9 82.3% 31%' },
-  green: { primary: '142.1 76.2% 36.3%', secondary: '142.4 71.8% 29.2%' },
-  orange: { primary: '24.6 95% 53.1%', secondary: '20.5 90.2% 48.2%' },
-  pink: { primary: '330.4 81.2% 60.4%', secondary: '329.4 86.2% 70.4%' },
+  teal: { primary: '180 64% 46%', secondary: '180 64% 36%' },
+  green: { primary: '145 63% 42%', secondary: '145 63% 32%' },
+  orange: { primary: '28 80% 52%', secondary: '20 90% 48%' },
+  olive: { primary: '60 100% 27%', secondary: '60 80% 22%' },
 };
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       mode: 'system',
-      accent: 'indigo',
+      accent: 'gold',
       reduceMotion: false,
       setMode: (mode) => {
         set({ mode });
@@ -53,8 +53,8 @@ export const useThemeStore = create<ThemeState>()(
 
 export function applyTheme(mode: ThemeMode, accent: AccentColor) {
   const root = document.documentElement;
-  const colors = accentColors[accent];
-  
+  const colors = accentColors[accent] ?? accentColors.gold;
+
   // Apply accent colors
   root.style.setProperty('--accent-primary', colors.primary);
   root.style.setProperty('--accent-secondary', colors.secondary);
@@ -78,6 +78,7 @@ export function initTheme() {
   const stored = localStorage.getItem('taskpulse-theme');
   if (stored) {
     const { state } = JSON.parse(stored);
-    applyTheme(state.mode, state.accent);
+    const accent = accentColors[state.accent as AccentColor] ? state.accent : 'gold';
+    applyTheme(state.mode ?? 'system', accent);
   }
 }

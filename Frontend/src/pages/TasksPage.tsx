@@ -382,21 +382,19 @@ function DescribeTaskDialog({
                 >
                   <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <Avatar className="w-7 h-7 shrink-0 mt-0.5">
-                      <AvatarFallback className={`text-[10px] ${
-                        msg.role === 'assistant'
-                          ? 'bg-primary/10 text-primary'
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
+                      <AvatarFallback className={`text-[10px] ${msg.role === 'assistant'
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                        }`}>
                         {msg.role === 'assistant' ? <Bot className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div
-                        className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground rounded-br-md'
-                            : 'bg-muted rounded-bl-md'
-                        }`}
+                        className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-br-md'
+                          : 'bg-muted rounded-bl-md'
+                          }`}
                       >
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
@@ -618,7 +616,7 @@ function CreateTaskModal({
         description: fullDescription.trim(),
         priority: priority as any,
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : undefined,
-        deadline: deadline || undefined,
+        deadline: deadline ? new Date(deadline).toISOString() : undefined,
         tags: tags.length > 0 ? tags : undefined,
       });
 
@@ -684,11 +682,10 @@ function CreateTaskModal({
               <button
                 type="button"
                 onClick={() => setAssignType('user')}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${
-                  assignType === 'user'
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border hover:border-primary/30'
-                }`}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${assignType === 'user'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border hover:border-primary/30'
+                  }`}
               >
                 <Users className="w-5 h-5" />
                 <span className="text-xs font-medium">Team Member</span>
@@ -696,11 +693,10 @@ function CreateTaskModal({
               <button
                 type="button"
                 onClick={() => setAssignType('agent')}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${
-                  assignType === 'agent'
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border hover:border-primary/30'
-                }`}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${assignType === 'agent'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border hover:border-primary/30'
+                  }`}
               >
                 <Bot className="w-5 h-5" />
                 <span className="text-xs font-medium">AI Agent</span>
@@ -708,11 +704,10 @@ function CreateTaskModal({
               <button
                 type="button"
                 onClick={() => setAssignType('helper')}
-                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${
-                  assignType === 'helper'
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border hover:border-primary/30'
-                }`}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-all ${assignType === 'helper'
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border hover:border-primary/30'
+                  }`}
               >
                 <UserCog className="w-5 h-5" />
                 <span className="text-xs font-medium">Agent Helper</span>
@@ -937,9 +932,8 @@ function SubtaskTree({
                 ) : (
                   <div className="w-4" />
                 )}
-                <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${
-                  sub.status === 'done' ? 'text-emerald-500' : 'text-muted-foreground'
-                }`} />
+                <CheckCircle2 className={`w-4 h-4 flex-shrink-0 ${sub.status === 'done' ? 'text-emerald-500' : 'text-muted-foreground'
+                  }`} />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium truncate ${sub.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
                     {sub.title}
@@ -1101,30 +1095,82 @@ function TaskDetailPanel({
     onError: (err) => toast.error(getApiErrorMessage(err)),
   });
 
+  const updateStatus = useMutation({
+    mutationFn: (newStatus: FrontendTaskStatus) =>
+      tasksService.updateStatus(task.id, { status: mapStatusToApi(newStatus) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      toast.success('Task status updated');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
+  const updateDeadline = useMutation({
+    mutationFn: (newDate: string) =>
+      tasksService.update(task.id, { deadline: newDate ? new Date(newDate).toISOString() : undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+      toast.success('Deadline updated');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err)),
+  });
+
   const statusLabels: Record<string, string> = {
     'todo': 'To Do', 'in-progress': 'In Progress', 'review': 'Review', 'done': 'Done',
   };
 
+  const getLocalDatetime = (isoStr: string) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    } catch {
+      return '';
+    }
+  };
+
   return (
     <Sheet open onOpenChange={() => onClose()}>
-      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto w-full md:w-[500px]">
         <SheetHeader>
           <SheetTitle className="text-lg">{task.title}</SheetTitle>
         </SheetHeader>
-        <div className="space-y-6 px-4 pb-6">
+        <div className="space-y-6 px-4 pb-6 mt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-6 text-xs px-2 gap-1 rounded-full">
+                  {statusLabels[task.status] ?? task.status}
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {['todo', 'in-progress', 'review', 'done'].map((st) => (
+                  <DropdownMenuItem key={st} onClick={() => st !== task.status ? updateStatus.mutate(st as FrontendTaskStatus) : null}>
+                    {statusLabels[st]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Badge variant="secondary">{priorityConfig[task.priority]?.label ?? task.priority}</Badge>
+            <div className="flex items-center gap-1 border rounded-md">
+              <Calendar className="w-3 h-3 ml-2 text-muted-foreground" />
+              <Input
+                type="datetime-local"
+                className="h-6 text-xs w-[140px] px-2 py-0 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent text-muted-foreground cursor-pointer"
+                defaultValue={getLocalDatetime(task.dueDate)}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  const currentStr = getLocalDatetime(task.dueDate);
+                  if (val !== currentStr) updateDeadline.mutate(val);
+                }}
+              />
+            </div>
+          </div>
           {task.description && (
             <p className="text-sm text-muted-foreground leading-relaxed">{task.description}</p>
           )}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{statusLabels[task.status] ?? task.status}</Badge>
-            <Badge variant="secondary">{priorityConfig[task.priority]?.label ?? task.priority}</Badge>
-            {task.dueDate && (
-              <Badge variant="outline" className="text-xs">
-                <Calendar className="w-3 h-3 mr-1" />
-                {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </Badge>
-            )}
-          </div>
 
           {/* Subtasks with nesting support */}
           <div>
@@ -1489,6 +1535,9 @@ function TimelineView({ tasks }: { tasks: FrontendTask[] }) {
 export default function TasksPage() {
   const [view, setView] = useState<'kanban' | 'list' | 'timeline'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
   const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
   const queryClient = useQueryClient();
   const { toggleTaskCreationSidebar } = useUIStore();
@@ -1498,7 +1547,40 @@ export default function TasksPage() {
     queryFn: () => tasksService.list({ search: searchQuery || undefined, root_only: true, limit: 100 }),
   });
 
-  const tasks = (data?.tasks ?? []).map(mapTaskToFrontend);
+  let tasks = (data?.tasks ?? []).map(mapTaskToFrontend);
+
+  // Apply local filtering
+  if (filterStatus !== 'all') {
+    tasks = tasks.filter(t => t.status === filterStatus);
+  }
+  if (filterPriority !== 'all') {
+    tasks = tasks.filter(t => t.priority === filterPriority);
+  }
+
+  // Apply local sorting
+  tasks.sort((a, b) => {
+    switch (sortBy) {
+      case 'newest': return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case 'oldest': return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      case 'a-z': return a.title.localeCompare(b.title);
+      case 'z-a': return b.title.localeCompare(a.title);
+      case 'due-soon':
+        if (!a.dueDate) return 1; if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      case 'due-late':
+        if (!a.dueDate) return 1; if (!b.dueDate) return -1;
+        return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+      case 'priority-high-low': {
+        const pMap: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+        return (pMap[b.priority] || 0) - (pMap[a.priority] || 0);
+      }
+      case 'priority-low-high': {
+        const pMap: Record<string, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+        return (pMap[a.priority] || 0) - (pMap[b.priority] || 0);
+      }
+      default: return 0;
+    }
+  });
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: FrontendTaskStatus }) =>
@@ -1571,14 +1653,59 @@ export default function TasksPage() {
             />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <Filter className="w-4 h-4" />
-              Filter
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <ArrowUpDown className="w-4 h-4" />
-              Sort
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant={filterStatus !== 'all' || filterPriority !== 'all' ? 'default' : 'outline'} className="gap-2">
+                  <Filter className="w-4 h-4" />
+                  Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => { setFilterStatus('all'); setFilterPriority('all'); }}>
+                  Clear Filters
+                </DropdownMenuItem>
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase mt-1">Status</div>
+                {['all', 'todo', 'in-progress', 'review', 'done'].map((st) => (
+                  <DropdownMenuItem key={st} onClick={() => setFilterStatus(st)}>
+                    <span className="w-4">{filterStatus === st ? '✓ ' : ''}</span>
+                    <span className="capitalize">{st.replace('-', ' ')}</span>
+                  </DropdownMenuItem>
+                ))}
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase mt-2 border-t pt-2">Priority</div>
+                {['all', 'low', 'medium', 'high', 'urgent'].map((pr) => (
+                  <DropdownMenuItem key={pr} onClick={() => setFilterPriority(pr)}>
+                    <span className="w-4">{filterPriority === pr ? '✓ ' : ''}</span>
+                    <span className="capitalize">{pr}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant={sortBy !== 'newest' ? 'default' : 'outline'} className="gap-2">
+                  <ArrowUpDown className="w-4 h-4" />
+                  Sort
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {[
+                  { id: 'newest', label: 'Created date (Newest)' },
+                  { id: 'oldest', label: 'Created date (Oldest)' },
+                  { id: 'due-soon', label: 'Due date (Soonest)' },
+                  { id: 'due-late', label: 'Due date (Latest)' },
+                  { id: 'priority-high-low', label: 'Priority (High to Low)' },
+                  { id: 'priority-low-high', label: 'Priority (Low to High)' },
+                  { id: 'a-z', label: 'Task Name (A-Z)' },
+                  { id: 'z-a', label: 'Task Name (Z-A)' },
+                ].map((s) => (
+                  <DropdownMenuItem key={s.id} onClick={() => setSortBy(s.id)}>
+                    <span className="w-4">{sortBy === s.id ? '✓ ' : ''}</span>
+                    {s.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
               <TabsList>
                 <TabsTrigger value="kanban" className="gap-2">

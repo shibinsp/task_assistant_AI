@@ -43,13 +43,13 @@ import { getApiErrorMessage } from '@/lib/api-client';
 
 // Accent color options
 const accentColors: { value: AccentColor; label: string; gradient: string }[] = [
-  { value: 'indigo', label: 'Indigo', gradient: 'from-indigo-500 to-violet-500' },
-  { value: 'purple', label: 'Purple', gradient: 'from-violet-500 to-purple-500' },
+  { value: 'gold', label: 'Gold', gradient: 'from-amber-600 to-yellow-500' },
+  { value: 'amber', label: 'Amber', gradient: 'from-amber-500 to-orange-400' },
   { value: 'blue', label: 'Blue', gradient: 'from-blue-500 to-cyan-500' },
-  { value: 'cyan', label: 'Cyan', gradient: 'from-cyan-500 to-teal-500' },
+  { value: 'teal', label: 'Teal', gradient: 'from-teal-500 to-cyan-500' },
   { value: 'green', label: 'Green', gradient: 'from-emerald-500 to-green-500' },
-  { value: 'orange', label: 'Orange', gradient: 'from-orange-500 to-amber-500' },
-  { value: 'pink', label: 'Pink', gradient: 'from-pink-500 to-rose-500' },
+  { value: 'orange', label: 'Orange', gradient: 'from-orange-500 to-red-500' },
+  { value: 'olive', label: 'Olive', gradient: 'from-yellow-700 to-lime-600' },
 ];
 
 // Profile Section

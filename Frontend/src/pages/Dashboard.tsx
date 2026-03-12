@@ -133,15 +133,15 @@ export default function Dashboard() {
   const statsCards = [
     {
       title: 'Tasks Completed',
-      value: metrics?.completed_tasks?.toString() ?? '0',
-      change: metrics?.completion_rate ? `${Math.round(metrics.completion_rate)}%` : '0%',
+      value: metrics?.task_summary?.total_completed?.toString() ?? '0',
+      change: metrics?.completion_metrics?.on_time_rate ? `${Math.round(metrics.completion_metrics.on_time_rate)}% on time` : '0% on time',
       trend: 'up' as const,
       icon: CheckCircle2,
       color: 'from-emerald-500 to-teal-500',
     },
     {
       title: 'In Progress',
-      value: metrics?.in_progress_tasks?.toString() ?? '0',
+      value: metrics?.task_summary?.by_status?.in_progress?.toString() ?? '0',
       change: '',
       trend: 'down' as const,
       icon: Clock,
@@ -149,19 +149,19 @@ export default function Dashboard() {
     },
     {
       title: 'At Risk',
-      value: (metrics?.overdue_tasks ?? 0 + (metrics?.blocked_tasks ?? 0)).toString(),
-      change: metrics?.overdue_tasks ? `${metrics.overdue_tasks} overdue` : '',
+      value: (metrics?.blocker_analysis?.total_blocked ?? 0).toString(),
+      change: metrics?.blocker_analysis?.total_blocked ? `${metrics.blocker_analysis.total_blocked} blocked` : '',
       trend: 'up' as const,
       icon: AlertTriangle,
-      color: 'from-amber-500 to-orange-500',
+      color: 'from-orange-500 to-red-500',
     },
     {
       title: 'Productivity Score',
-      value: metrics?.completion_rate ? `${Math.round(metrics.completion_rate)}%` : '0%',
+      value: metrics?.completion_metrics?.on_time_rate ? `${Math.round(metrics.completion_metrics.on_time_rate)}%` : '0%',
       change: '',
       trend: 'up' as const,
       icon: Zap,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-yellow-500',
     },
   ];
 
@@ -230,7 +230,7 @@ export default function Dashboard() {
                 <p className="font-medium">AI Insight</p>
                 <p className="text-sm text-muted-foreground truncate">
                   {metrics
-                    ? `You have ${metrics.total_tasks ?? 0} total tasks, ${metrics.completed_tasks ?? 0} completed. Keep up the great work!`
+                    ? `You have ${(metrics?.task_summary?.total_active ?? 0) + (metrics?.task_summary?.total_completed ?? 0)} total tasks, ${metrics?.task_summary?.total_completed ?? 0} completed. Keep up the great work!`
                     : 'Loading insights...'}
                 </p>
               </div>
@@ -246,41 +246,41 @@ export default function Dashboard() {
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {metricsLoading
             ? Array.from({ length: 4 }).map((_, i) => (
-                <Card key={i}>
+              <Card key={i}>
+                <CardContent className="p-4 lg:p-6">
+                  <Skeleton className="h-10 w-10 rounded-xl mb-4" />
+                  <Skeleton className="h-8 w-20 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </CardContent>
+              </Card>
+            ))
+            : statsCards.map((card, index) => {
+              const Icon = card.icon;
+              const isPositive = card.trend === 'up' && card.title !== 'At Risk';
+              return (
+                <Card key={index} className="hover-lift">
                   <CardContent className="p-4 lg:p-6">
-                    <Skeleton className="h-10 w-10 rounded-xl mb-4" />
-                    <Skeleton className="h-8 w-20 mb-2" />
-                    <Skeleton className="h-4 w-24" />
+                    <div className="flex items-start justify-between">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center`}>
+                        <Icon className="w-5 h-5 text-white" />
+                      </div>
+                      {card.change && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${isPositive ? 'text-emerald-500 border-emerald-500/20' : card.title === 'At Risk' ? 'text-red-500 border-red-500/20' : 'text-amber-500 border-amber-500/20'}`}
+                        >
+                          {card.change}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-2xl lg:text-3xl font-bold">{card.value}</p>
+                      <p className="text-sm text-muted-foreground">{card.title}</p>
+                    </div>
                   </CardContent>
                 </Card>
-              ))
-            : statsCards.map((card, index) => {
-                const Icon = card.icon;
-                const isPositive = card.trend === 'up' && card.title !== 'At Risk';
-                return (
-                  <Card key={index} className="hover-lift">
-                    <CardContent className="p-4 lg:p-6">
-                      <div className="flex items-start justify-between">
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center`}>
-                          <Icon className="w-5 h-5 text-white" />
-                        </div>
-                        {card.change && (
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${isPositive ? 'text-emerald-500 border-emerald-500/20' : card.title === 'At Risk' ? 'text-red-500 border-red-500/20' : 'text-amber-500 border-amber-500/20'}`}
-                          >
-                            {card.change}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-2xl lg:text-3xl font-bold">{card.value}</p>
-                        <p className="text-sm text-muted-foreground">{card.title}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              );
+            })}
         </motion.div>
 
         {/* Charts Row */}
@@ -305,12 +305,12 @@ export default function Dashboard() {
                   <AreaChart data={velocityData}>
                     <defs>
                       <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -404,12 +404,11 @@ export default function Dashboard() {
                         key={task.id}
                         className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer group"
                       >
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          task.status === 'done' ? 'bg-emerald-500' :
-                          task.status === 'in-progress' ? 'bg-blue-500' :
-                          task.status === 'review' ? 'bg-amber-500' :
-                          'bg-slate-500'
-                        }`} />
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.status === 'done' ? 'bg-emerald-500' :
+                            task.status === 'in-progress' ? 'bg-blue-500' :
+                              task.status === 'review' ? 'bg-amber-500' :
+                                'bg-slate-500'
+                          }`} />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate group-hover:text-primary transition-colors">
                             {task.title}

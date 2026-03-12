@@ -424,8 +424,8 @@ const statCards = [
     key: 'total_tasks',
     label: 'Total Tasks',
     icon: CheckSquare,
-    color: 'text-violet-500',
-    bg: 'bg-violet-500/10',
+    color: 'text-amber-600',
+    bg: 'bg-amber-600/10',
   },
   {
     key: 'completed_tasks',

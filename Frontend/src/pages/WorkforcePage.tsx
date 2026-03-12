@@ -196,7 +196,7 @@ function OrgHealthTab() {
       label: 'Skill Coverage',
       value: orgHealth.skill_coverage_index,
       icon: Users,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-amber-500',
     },
     {
       label: 'Management Quality',
@@ -286,7 +286,7 @@ function OrgHealthTab() {
           <div className="flex items-center gap-4">
             <Progress
               value={orgHealth.automation_maturity_index}
-              className="flex-1 h-3 [&>div]:bg-violet-500"
+              className="flex-1 h-3 [&>div]:bg-amber-600"
             />
             <span className="text-lg font-bold">{orgHealth.automation_maturity_index}%</span>
           </div>

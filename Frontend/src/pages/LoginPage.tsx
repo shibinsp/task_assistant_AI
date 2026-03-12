@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import {
-  Sparkles,
   Mail,
   Lock,
   Eye,
@@ -167,9 +166,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            <img src="/beeax-logo.jpeg" alt="TaskPulse" className="w-10 h-10 rounded-xl object-cover" />
             <span className="text-xl font-bold">TaskPulse</span>
           </Link>
 

@@ -80,10 +80,10 @@ const AVAILABLE_PROVIDERS: Array<{
   bgColor: string;
 }> = [
   { type: 'github', name: 'GitHub', icon: Github, color: 'text-gray-900 dark:text-white', bgColor: 'bg-gray-100 dark:bg-gray-800' },
-  { type: 'slack', name: 'Slack', icon: MessageSquare, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950' },
+  { type: 'slack', name: 'Slack', icon: MessageSquare, color: 'text-amber-600', bgColor: 'bg-amber-50 dark:bg-amber-950' },
   { type: 'jira', name: 'Jira', icon: LayoutGrid, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950' },
   { type: 'confluence', name: 'Google Calendar', icon: Calendar, color: 'text-emerald-600', bgColor: 'bg-emerald-50 dark:bg-emerald-950' },
-  { type: 'notion', name: 'Linear', icon: Minus, color: 'text-indigo-600', bgColor: 'bg-indigo-50 dark:bg-indigo-950' },
+  { type: 'notion', name: 'Linear', icon: Minus, color: 'text-yellow-600', bgColor: 'bg-yellow-50 dark:bg-yellow-950' },
 ];
 
 const WEBHOOK_EVENTS = [

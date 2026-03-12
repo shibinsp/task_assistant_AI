@@ -348,7 +348,7 @@ function SystemHealthSection() {
     {
       title: 'API Service',
       icon: Server,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-amber-500',
       content: (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -893,7 +893,7 @@ function AIGovernanceSection() {
       value: governance.total_ai_requests.toLocaleString(),
       subtitle: 'All-time AI requests',
       icon: Brain,
-      color: 'from-violet-500 to-purple-500',
+      color: 'from-amber-600 to-amber-500',
     },
     {
       title: 'Avg Quality Score',
@@ -928,7 +928,7 @@ function AIGovernanceSection() {
       value: governance.model,
       subtitle: `Provider: ${governance.provider}`,
       icon: Server,
-      color: 'from-indigo-500 to-blue-500',
+      color: 'from-yellow-600 to-blue-500',
     },
   ];
 
