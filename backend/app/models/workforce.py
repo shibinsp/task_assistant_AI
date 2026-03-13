@@ -4,9 +4,11 @@ Executive-level decision intelligence
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 import enum
-from datetime import datetime
+import uuid
 
 from app.database import Base
 
@@ -15,10 +17,10 @@ class WorkforceScore(Base):
     """Employee workforce score snapshot."""
     __tablename__ = "workforce_scores"
 
-    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    snapshot_date = Column(DateTime, default=datetime.utcnow)
+    snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
     # Component scores (0-100)
     velocity_score = Column(Float, nullable=True)
@@ -46,10 +48,10 @@ class ManagerEffectiveness(Base):
     """Manager effectiveness metrics."""
     __tablename__ = "manager_effectiveness"
 
-    manager_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    manager_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    snapshot_date = Column(DateTime, default=datetime.utcnow)
+    snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
     # Team metrics
     team_size = Column(Integer, default=0)
@@ -79,8 +81,8 @@ class OrgHealthSnapshot(Base):
     """Organization health daily snapshot."""
     __tablename__ = "org_health_snapshots"
 
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    snapshot_date = Column(DateTime, default=datetime.utcnow)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
     # Health components (0-100)
     productivity_index = Column(Float, nullable=True)
@@ -109,15 +111,15 @@ class RestructuringScenario(Base):
     """What-if scenario for restructuring."""
     __tablename__ = "restructuring_scenarios"
 
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     name = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
 
     # Scenario config
     scenario_type = Column(String(100), nullable=False)  # team_merge, role_change, automation_replace, reduction
-    config_json = Column(Text, default="{}")
+    config = Column(JSONB, default={})
 
     # Impact projections
     projected_cost_change = Column(Float, nullable=True)
@@ -126,23 +128,13 @@ class RestructuringScenario(Base):
     affected_employees = Column(Integer, default=0)
 
     # Risk assessment
-    risk_factors_json = Column(Text, default="[]")
+    risk_factors = Column(JSONB, default=[])
     overall_risk_score = Column(Float, nullable=True)
 
     # Status
     is_draft = Column(Boolean, default=True)
     executed = Column(Boolean, default=False)
-    executed_at = Column(DateTime, nullable=True)
+    executed_at = Column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", backref="restructuring_scenarios")
     creator = relationship("User", backref="created_scenarios")
-
-    @property
-    def config(self):
-        import json
-        return json.loads(self.config_json or "{}")
-
-    @config.setter
-    def config(self, value):
-        import json
-        self.config_json = json.dumps(value)

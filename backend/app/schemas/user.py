@@ -222,21 +222,3 @@ class CurrentUserResponse(UserDetailResponse):
     permissions: list[str] = Field(default_factory=list)
 
 
-# ==================== Session Schemas ====================
-
-class SessionResponse(BaseModel):
-    """Schema for session in API responses."""
-    id: str
-    device_info: Optional[str] = None
-    ip_address: Optional[str] = None
-    last_activity: datetime
-    created_at: datetime
-    is_current: bool = False
-
-    model_config = {"from_attributes": True}
-
-
-class SessionListResponse(BaseModel):
-    """Response for list of sessions."""
-    sessions: list[SessionResponse]
-    total: int

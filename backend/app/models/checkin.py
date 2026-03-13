@@ -4,8 +4,11 @@ Smart check-in system for proactive task monitoring
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy.sql import func
 import enum
+import uuid
 from datetime import datetime
 from typing import Optional
 
@@ -51,19 +54,19 @@ class CheckIn(Base):
 
     # Relationships
     task_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -75,9 +78,9 @@ class CheckIn(Base):
     status = Column(Enum(CheckInStatus), default=CheckInStatus.PENDING, index=True)
 
     # Timing
-    scheduled_at = Column(DateTime, nullable=False)
-    responded_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
+    scheduled_at = Column(DateTime(timezone=True), nullable=False)
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
 
     # User response
     progress_indicator = Column(Enum(ProgressIndicator), nullable=True)
@@ -95,8 +98,8 @@ class CheckIn(Base):
 
     # Escalation
     escalated = Column(Boolean, default=False)
-    escalated_to = Column(String(36), ForeignKey("users.id"), nullable=True)
-    escalated_at = Column(DateTime, nullable=True)
+    escalated_to = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    escalated_at = Column(DateTime(timezone=True), nullable=True)
     escalation_reason = Column(Text, nullable=True)
 
     # Relationships
@@ -135,16 +138,16 @@ class CheckInConfig(Base):
     __tablename__ = "checkin_configs"
 
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
 
     # Scope - one of these should be set (null = org-wide default)
-    team_id = Column(String(36), nullable=True, index=True)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
-    task_id = Column(String(36), ForeignKey("tasks.id"), nullable=True, index=True)
+    team_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True, index=True)
 
     # Check-in settings
     interval_hours = Column(Float, default=3.0)  # Hours between check-ins
@@ -191,22 +194,22 @@ class CheckInReminder(Base):
     __tablename__ = "checkin_reminders"
 
     checkin_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("checkins.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
 
     reminder_number = Column(Integer, default=1)  # 1st, 2nd reminder
     channel = Column(String(50), default="in_app")  # in_app, email, slack, etc.
-    sent_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
     acknowledged = Column(Boolean, default=False)
-    acknowledged_at = Column(DateTime, nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     checkin = relationship("CheckIn", backref="reminders")

@@ -51,7 +51,7 @@ from app.schemas.user import (
     UserRegister, UserLogin, UserCreate, UserUpdate, UserAdminUpdate,
     TokenResponse, TokenRefresh, PasswordReset, PasswordResetConfirm,
     UserResponse, UserDetailResponse, UserListResponse, CurrentUserResponse,
-    ConsentUpdate, ConsentResponse, SessionResponse, SessionListResponse,
+    ConsentUpdate, ConsentResponse,
 )
 
 # Notification schemas

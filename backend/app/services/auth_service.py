@@ -1,63 +1,52 @@
 """
 TaskPulse - AI Assistant - Authentication Service
-Business logic for user authentication and session management
+Business logic for user authentication via Supabase Auth
 """
 
-from datetime import datetime, timedelta, timezone
+import asyncio
+from datetime import datetime, timezone
 from typing import Optional, Tuple
 import logging
 
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.core.security import (
-    hash_password,
-    verify_password,
-    create_access_token,
-    create_refresh_token,
-    verify_token,
-    hash_token,
-    generate_password_reset_token,
-    verify_password_reset_token
-)
 from app.core.exceptions import (
-    InvalidCredentialsException,
     AlreadyExistsException,
     NotFoundException,
     InactiveUserException,
-    InvalidTokenException,
-    TokenExpiredException,
-    AccountLockedException,
-    ValidationException
+    InvalidCredentialsException,
+    ValidationException,
 )
-from app.models.user import User, Session, UserRole
+from app.models.user import User, UserRole
 from app.models.organization import Organization, PlanTier
 from app.schemas.user import (
     UserRegister,
-    UserCreate,
-    TokenResponse,
-    ConsentUpdate
+    ConsentUpdate,
 )
+from app.supabase_client import get_supabase_client
 from app.utils.helpers import generate_uuid, slugify
 
 logger = logging.getLogger(__name__)
 
 
 class AuthService:
-    """Service for authentication operations."""
+    """Service for authentication operations via Supabase Auth."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.supabase = get_supabase_client()
+
+    # ==================== Public Methods ====================
 
     async def register(
         self,
         user_data: UserRegister,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
-    ) -> Tuple[User, Organization, TokenResponse]:
+        user_agent: Optional[str] = None,
+    ) -> Tuple[User, Organization]:
         """
-        Register a new user and optionally create an organization.
+        Register a new user via Supabase Auth and create local records.
 
         Args:
             user_data: Registration data
@@ -65,12 +54,28 @@ class AuthService:
             user_agent: Client user agent
 
         Returns:
-            Tuple of (User, Organization, TokenResponse)
+            Tuple of (User, Organization)
         """
-        # Check if email already exists
+        # Check if email already exists locally
         existing_user = await self._get_user_by_email(user_data.email)
         if existing_user:
             raise AlreadyExistsException("User", "email", user_data.email)
+
+        # Create user in Supabase Auth
+        try:
+            supabase_response = await asyncio.to_thread(
+                self.supabase.auth.admin.create_user,
+                {
+                    "email": user_data.email,
+                    "password": user_data.password,
+                    "email_confirm": True,
+                },
+            )
+        except Exception as e:
+            logger.error(f"Supabase user creation failed: {e}")
+            raise ValidationException(f"Failed to create auth account: {e}")
+
+        supabase_auth_id = supabase_response.user.id
 
         # Determine organization
         if user_data.org_id:
@@ -82,53 +87,42 @@ class AuthService:
         elif user_data.org_name:
             # Create new organization
             org = await self._create_organization(user_data.org_name)
-            role = user_data.role or UserRole.ORG_ADMIN  # Creator becomes admin if no role specified
+            role = user_data.role or UserRole.ORG_ADMIN
         else:
             raise ValidationException(
                 "Either org_name (for new org) or org_id (to join) is required"
             )
 
-        # Create user
+        # Create local user record (no password_hash — Supabase handles auth)
         user = User(
             id=generate_uuid(),
             org_id=org.id,
             email=user_data.email.lower(),
-            password_hash=hash_password(user_data.password),
+            supabase_auth_id=str(supabase_auth_id),
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             role=role,
             is_active=True,
-            is_email_verified=False  # Would send verification email in production
+            is_email_verified=True,  # Supabase confirmed the email
         )
 
         self.db.add(user)
-        await self.db.flush()
-
-        # Create session and tokens
-        tokens = await self._create_session(
-            user,
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
-
-        # Explicit commit to ensure user record is persisted before returning tokens.
-        # Without this, the get_db() context manager commits AFTER the endpoint returns,
-        # causing login failures when clients immediately use the returned tokens.
         await self.db.commit()
 
         logger.info(f"User registered: {user.email} in org {org.name}")
 
-        return user, org, tokens
+        return user, org
 
     async def login(
         self,
         email: str,
         password: str,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
-    ) -> Tuple[User, TokenResponse]:
+        user_agent: Optional[str] = None,
+    ) -> Tuple[User, dict]:
         """
-        Authenticate user and create session.
+        Authenticate user via Supabase Auth. Used for API/mobile clients.
+        Frontend authenticates directly with Supabase; this is the backend fallback.
 
         Args:
             email: User email
@@ -137,212 +131,109 @@ class AuthService:
             user_agent: Client user agent
 
         Returns:
-            Tuple of (User, TokenResponse)
+            Tuple of (User, supabase_session_dict)
         """
-        # Get user by email
-        user = await self._get_user_by_email(email)
-
-        if not user:
-            logger.warning(f"Login attempt for non-existent user: {email}")
+        # Authenticate with Supabase
+        try:
+            supabase_response = await asyncio.to_thread(
+                self.supabase.auth.sign_in_with_password,
+                {"email": email, "password": password},
+            )
+        except Exception as e:
+            logger.warning(f"Supabase login failed for {email}: {e}")
             raise InvalidCredentialsException()
 
-        # Check if user is active
+        # Look up local user
+        user = await self._get_user_by_email(email)
+        if not user:
+            logger.warning(f"Login: no local user for {email}")
+            raise InvalidCredentialsException()
+
         if not user.is_active:
             logger.warning(f"Login attempt for inactive user: {email}")
             raise InactiveUserException()
 
-        # Check if account is locked
-        if user.lockout_until and user.lockout_until > datetime.utcnow():
-            logger.warning(f"Login attempt for locked account: {email}")
-            raise AccountLockedException()
-
-        # Verify password
-        if not user.password_hash or not verify_password(password, user.password_hash):
-            # Track failed attempt
-            await self._record_failed_login(user)
-            logger.warning(f"Failed login attempt for user: {email}")
-            raise InvalidCredentialsException()
-
-        # Reset failed attempts and lockout on successful login
-        user.failed_login_attempts = "0"
-        user.lockout_until = None
-        user.last_login = datetime.utcnow()
-
-        # Create session and tokens
-        tokens = await self._create_session(
-            user,
-            ip_address=ip_address,
-            user_agent=user_agent
-        )
+        # Update last_login
+        user.last_login = datetime.now(timezone.utc)
+        await self.db.commit()
 
         logger.info(f"User logged in: {user.email}")
 
-        return user, tokens
+        # Build session dict from Supabase response
+        session = supabase_response.session
+        supabase_session = {
+            "access_token": session.access_token,
+            "refresh_token": session.refresh_token,
+            "token_type": "bearer",
+            "expires_in": session.expires_in,
+        }
 
-    async def refresh_tokens(
-        self,
-        refresh_token: str,
-        ip_address: Optional[str] = None
-    ) -> TokenResponse:
+        return user, supabase_session
+
+    async def refresh_tokens(self, refresh_token: str) -> dict:
         """
-        Refresh access token using refresh token.
+        Refresh Supabase session tokens.
 
         Args:
-            refresh_token: JWT refresh token
-            ip_address: Client IP address
+            refresh_token: Supabase refresh token
 
         Returns:
-            New TokenResponse
+            Dict with new access_token, refresh_token, token_type, expires_in
         """
-        # Verify refresh token
-        payload = verify_token(refresh_token, token_type="refresh")
-        if not payload:
-            raise InvalidTokenException("Invalid refresh token")
-
-        user_id = payload.get("sub")
-        if not user_id:
-            raise InvalidTokenException("Invalid token payload")
-
-        # Get user
-        user = await self._get_user_by_id(user_id)
-        if not user:
-            raise InvalidTokenException("User not found")
-
-        if not user.is_active:
-            raise InactiveUserException()
-
-        # Verify session exists
-        token_hash = hash_token(refresh_token)
-        session = await self._get_session_by_refresh_token(token_hash)
-        if not session or not session.is_valid:
-            raise InvalidTokenException("Session expired or invalid")
-
-        # Create new tokens
-        tokens = self._generate_tokens(user)
-
-        # Update session
-        session.token_hash = hash_token(tokens.access_token)
-        session.refresh_token_hash = hash_token(tokens.refresh_token)
-        session.last_activity = datetime.utcnow()
-        session.expires_at = datetime.utcnow() + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-        session.refresh_expires_at = datetime.utcnow() + timedelta(
-            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-        )
-
-        logger.info(f"Tokens refreshed for user: {user.email}")
-
-        return tokens
-
-    async def logout(self, user_id: str, token: str) -> None:
-        """
-        Logout user by invalidating session.
-
-        Args:
-            user_id: User ID
-            token: Current access token
-        """
-        token_hash = hash_token(token)
-        session = await self._get_session_by_token(token_hash)
-
-        if session:
-            session.is_active = False
-            logger.info(f"User logged out: {user_id}")
-
-    async def logout_all(self, user_id: str) -> int:
-        """
-        Logout user from all sessions.
-
-        Args:
-            user_id: User ID
-
-        Returns:
-            Number of sessions invalidated
-        """
-        result = await self.db.execute(
-            select(Session).where(
-                and_(
-                    Session.user_id == user_id,
-                    Session.is_active == True
-                )
+        try:
+            supabase_response = await asyncio.to_thread(
+                self.supabase.auth.refresh_session,
+                refresh_token,
             )
-        )
-        sessions = result.scalars().all()
+        except Exception as e:
+            logger.warning(f"Token refresh failed: {e}")
+            raise InvalidCredentialsException("Invalid or expired refresh token")
 
-        count = 0
-        for session in sessions:
-            session.is_active = False
-            count += 1
+        session = supabase_response.session
+        return {
+            "access_token": session.access_token,
+            "refresh_token": session.refresh_token,
+            "token_type": "bearer",
+            "expires_in": session.expires_in,
+        }
 
-        logger.info(f"Logged out user {user_id} from {count} sessions")
-        return count
-
-    async def request_password_reset(self, email: str) -> str:
+    async def logout(self, user_id: str) -> None:
         """
-        Generate password reset token.
+        Log the logout event. Frontend calls supabase.auth.signOut() directly.
+
+        Args:
+            user_id: User ID
+        """
+        logger.info(f"User logged out: {user_id}")
+
+    async def request_password_reset(self, email: str) -> None:
+        """
+        Request password reset via Supabase (sends email).
 
         Args:
             email: User email
-
-        Returns:
-            Password reset token
         """
-        user = await self._get_user_by_email(email)
+        try:
+            await asyncio.to_thread(
+                self.supabase.auth.reset_password_for_email,
+                email,
+            )
+        except Exception as e:
+            # Log but don't reveal whether email exists
+            logger.info(f"Password reset requested for {email}: {e}")
 
-        # Always return success to prevent email enumeration
-        if not user:
-            logger.info(f"Password reset requested for non-existent email: {email}")
-            return generate_password_reset_token(email)
-
-        token = generate_password_reset_token(email)
-        logger.info(f"Password reset requested for user: {email}")
-
-        # In production, send email here
-        return token
-
-    async def reset_password(self, token: str, new_password: str) -> User:
-        """
-        Reset user password using reset token.
-
-        Args:
-            token: Password reset token
-            new_password: New password
-
-        Returns:
-            Updated User
-        """
-        email = verify_password_reset_token(token)
-        if not email:
-            raise InvalidTokenException("Invalid or expired reset token")
-
-        user = await self._get_user_by_email(email)
-        if not user:
-            raise NotFoundException("User")
-
-        # Update password
-        user.password_hash = hash_password(new_password)
-        user.failed_login_attempts = "0"
-
-        # Invalidate all sessions
-        await self.logout_all(user.id)
-
-        logger.info(f"Password reset for user: {email}")
-
-        return user
+        logger.info(f"Password reset requested for: {email}")
 
     async def change_password(
         self,
         user_id: str,
-        current_password: str,
-        new_password: str
+        new_password: str,
     ) -> User:
         """
-        Change user password.
+        Change user password via Supabase admin API.
 
         Args:
-            user_id: User ID
-            current_password: Current password
+            user_id: Local user ID
             new_password: New password
 
         Returns:
@@ -352,12 +243,18 @@ class AuthService:
         if not user:
             raise NotFoundException("User", user_id)
 
-        # Verify current password
-        if not verify_password(current_password, user.password_hash):
-            raise InvalidCredentialsException("Current password is incorrect")
+        if not user.supabase_auth_id:
+            raise ValidationException("User does not have a Supabase auth account")
 
-        # Update password
-        user.password_hash = hash_password(new_password)
+        try:
+            await asyncio.to_thread(
+                self.supabase.auth.admin.update_user_by_id,
+                str(user.supabase_auth_id),
+                {"password": new_password},
+            )
+        except Exception as e:
+            logger.error(f"Supabase password change failed: {e}")
+            raise ValidationException(f"Failed to change password: {e}")
 
         logger.info(f"Password changed for user: {user.email}")
 
@@ -366,7 +263,7 @@ class AuthService:
     async def update_consent(
         self,
         user_id: str,
-        consent_data: ConsentUpdate
+        consent_data: ConsentUpdate,
     ) -> User:
         """
         Update user consent settings.
@@ -391,32 +288,6 @@ class AuthService:
 
         return user
 
-    async def get_user_sessions(
-        self,
-        user_id: str,
-        current_token: str
-    ) -> list[Session]:
-        """
-        Get all active sessions for a user.
-
-        Args:
-            user_id: User ID
-            current_token: Current access token (to mark current session)
-
-        Returns:
-            List of Sessions
-        """
-        result = await self.db.execute(
-            select(Session).where(
-                and_(
-                    Session.user_id == user_id,
-                    Session.is_active == True,
-                    Session.expires_at > datetime.utcnow()
-                )
-            ).order_by(Session.last_activity.desc())
-        )
-        return list(result.scalars().all())
-
     # ==================== Private Helper Methods ====================
 
     async def _get_user_by_email(self, email: str) -> Optional[User]:
@@ -430,6 +301,13 @@ class AuthService:
         """Get user by ID."""
         result = await self.db.execute(
             select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def _get_user_by_supabase_id(self, supabase_id: str) -> Optional[User]:
+        """Get user by Supabase auth ID."""
+        result = await self.db.execute(
+            select(User).where(User.supabase_auth_id == supabase_id)
         )
         return result.scalar_one_or_none()
 
@@ -461,7 +339,7 @@ class AuthService:
             name=name,
             slug=slug,
             plan=PlanTier.STARTER,
-            is_active=True
+            is_active=True,
         )
 
         self.db.add(org)
@@ -470,103 +348,3 @@ class AuthService:
         logger.info(f"Organization created: {name} ({slug})")
 
         return org
-
-    async def _create_session(
-        self,
-        user: User,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
-    ) -> TokenResponse:
-        """Create a new session for user."""
-        tokens = self._generate_tokens(user)
-
-        session = Session(
-            id=generate_uuid(),
-            user_id=user.id,
-            token_hash=hash_token(tokens.access_token),
-            refresh_token_hash=hash_token(tokens.refresh_token),
-            ip_address=ip_address,
-            user_agent=user_agent,
-            expires_at=datetime.utcnow() + timedelta(
-                minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-            ),
-            refresh_expires_at=datetime.utcnow() + timedelta(
-                days=settings.REFRESH_TOKEN_EXPIRE_DAYS
-            ),
-            is_active=True
-        )
-
-        self.db.add(session)
-        await self.db.flush()
-
-        return tokens
-
-    def _generate_tokens(self, user: User) -> TokenResponse:
-        """Generate access and refresh tokens for user."""
-        token_data = {
-            "sub": user.id,
-            "email": user.email,
-            "org_id": user.org_id,
-            "role": user.role.value
-        }
-
-        access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
-
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-        )
-
-    async def _get_session_by_token(self, token_hash: str) -> Optional[Session]:
-        """Get session by access token hash."""
-        result = await self.db.execute(
-            select(Session).where(Session.token_hash == token_hash)
-        )
-        return result.scalar_one_or_none()
-
-    async def _get_session_by_refresh_token(
-        self,
-        refresh_token_hash: str
-    ) -> Optional[Session]:
-        """Get session by refresh token hash."""
-        result = await self.db.execute(
-            select(Session).where(Session.refresh_token_hash == refresh_token_hash)
-        )
-        return result.scalar_one_or_none()
-
-    async def _record_failed_login(self, user: User) -> None:
-        """
-        SEC-014: Record failed login attempt and implement progressive account lockout.
-
-        Lockout schedule:
-        - 5 failed attempts  → 15 minute lockout
-        - 10 failed attempts → 1 hour lockout
-        - 15+ failed attempts → 4 hour lockout
-        """
-        try:
-            attempts = int(user.failed_login_attempts or "0")
-        except ValueError:
-            attempts = 0
-
-        attempts += 1
-        user.failed_login_attempts = str(attempts)
-
-        # Progressive lockout based on attempt count
-        if attempts >= 15:
-            lockout_duration = timedelta(hours=4)
-        elif attempts >= 10:
-            lockout_duration = timedelta(hours=1)
-        elif attempts >= 5:
-            lockout_duration = timedelta(minutes=15)
-        else:
-            lockout_duration = None
-
-        if lockout_duration:
-            user.lockout_until = datetime.utcnow() + lockout_duration
-            logger.warning(
-                f"Account locked for user {user.email} after {attempts} failed attempts. "
-                f"Locked for {lockout_duration}. Unlocks at {user.lockout_until}"
-            )

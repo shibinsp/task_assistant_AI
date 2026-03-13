@@ -432,9 +432,9 @@ async def websocket_chat(websocket: WebSocket):
             await websocket.close(code=4001)
             return
 
-        # SEC-008: Verify JWT and extract user identity
-        from ...core.security import verify_token
-        payload = verify_token(token, token_type="access")
+        # SEC-008: Verify Supabase JWT and extract user identity
+        from ...core.security import verify_supabase_token
+        payload = verify_supabase_token(token)
         if not payload:
             await websocket.send_json({"error": "Invalid or expired token."})
             await websocket.close(code=4001)

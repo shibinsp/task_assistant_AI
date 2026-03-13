@@ -289,16 +289,23 @@ async def upload_document(
             detail="Uploaded file is empty."
         )
 
-    # Decode based on file type
+    # Extract text content from file using file extractor
+    from app.utils.file_extractor import extract_text_from_bytes
     try:
-        text_content = content.decode('utf-8')
-    except UnicodeDecodeError:
+        text_content = extract_text_from_bytes(content, filename)
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a text file (txt, md, etc.)"
+            detail=f"Failed to extract text from file: {e}"
         )
 
-    # Create document
+    if not text_content.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No text could be extracted from the uploaded file."
+        )
+
+    # Create document record
     doc_data = DocumentCreate(
         title=file.filename or "Uploaded Document",
         content=text_content,
@@ -311,6 +318,26 @@ async def upload_document(
     doc.file_name = file.filename
     doc.file_type = file.content_type
     doc.file_size = len(content)
+
+    # Upload raw file to Supabase Storage
+    from app.services.storage_service import StorageService
+    try:
+        storage = StorageService()
+        storage_path, storage_url = await storage.upload_file(
+            org_id=current_user.org_id,
+            doc_id=doc.id,
+            filename=filename,
+            content=content,
+            content_type=file.content_type or "application/octet-stream",
+        )
+        doc.storage_path = storage_path
+        doc.storage_url = storage_url
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Supabase storage upload failed for doc %s; document saved without file storage",
+            doc.id,
+        )
 
     await service.db.flush()
 

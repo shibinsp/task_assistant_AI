@@ -1,25 +1,34 @@
 """
 TaskPulse - AI Assistant - Database Configuration
-SQLite database setup with SQLAlchemy async support
+PostgreSQL (Supabase) database setup with SQLAlchemy async support
 """
 
-from datetime import datetime
-from typing import AsyncGenerator
+import ssl
 import uuid
+from typing import AsyncGenerator
 
-from sqlalchemy import Column, DateTime, String, event
+from sqlalchemy import Column, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 
 from app.config import settings
 
 
-# Create async engine for SQLite
+# SSL context for Supabase connection pooler (uses self-signed certs)
+_ssl_context = ssl.create_default_context()
+_ssl_context.check_hostname = False
+_ssl_context.verify_mode = ssl.CERT_NONE
+
+# Create async engine for PostgreSQL (Supabase)
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DATABASE_ECHO,
     future=True,
-    connect_args={"check_same_thread": False}  # Required for SQLite
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    connect_args={"ssl": _ssl_context},
 )
 
 # Create async session factory
@@ -47,45 +56,36 @@ class Base(DeclarativeBase):
             ['_' + c.lower() if c.isupper() else c for c in name]
         ).lstrip('_') + 's'
 
-    # Common columns for all models
+    # Common columns for all models — using native PostgreSQL UUID
     id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         primary_key=True,
-        default=lambda: str(uuid.uuid4()),
+        default=uuid.uuid4,
         index=True
     )
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
         index=True
     )
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False
     )
 
     def to_dict(self) -> dict:
         """Convert model to dictionary."""
-        return {
-            column.name: getattr(self, column.name)
-            for column in self.__table__.columns
-        }
-
-
-# Enable foreign key support for SQLite
-@event.listens_for(engine.sync_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable foreign keys and other optimizations for SQLite."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging for better concurrency
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA cache_size=10000")
-    cursor.execute("PRAGMA temp_store=MEMORY")
-    cursor.close()
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            # Convert UUID to string for JSON serialization
+            if isinstance(value, uuid.UUID):
+                value = str(value)
+            result[column.name] = value
+        return result
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -118,7 +118,7 @@ async def init_db() -> None:
         # Import ALL models to ensure they're registered with Base.metadata
         from app.models import (  # noqa: F401
             # Phase 2 - Auth & Users
-            Organization, User, Session,
+            Organization, User,
             # Phase 4 - Tasks
             Task, TaskDependency, TaskHistory, TaskComment,
             # Phase 6 - Check-ins

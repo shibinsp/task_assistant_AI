@@ -4,8 +4,11 @@ ML-powered forecasting and risk assessment
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy.sql import func
 import enum
+import uuid
 from datetime import datetime
 
 from app.database import Base
@@ -24,55 +27,45 @@ class Prediction(Base):
     """Prediction record for tasks/projects."""
     __tablename__ = "predictions"
 
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     prediction_type = Column(Enum(PredictionType), nullable=False)
 
     # Target
-    task_id = Column(String(36), ForeignKey("tasks.id"), nullable=True)
-    project_id = Column(String(36), nullable=True)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
-    team_id = Column(String(36), nullable=True)
+    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True)
+    project_id = Column(PG_UUID(as_uuid=True), nullable=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    team_id = Column(PG_UUID(as_uuid=True), nullable=True)
 
     # Prediction values
-    predicted_date_p25 = Column(DateTime, nullable=True)  # 25th percentile
-    predicted_date_p50 = Column(DateTime, nullable=True)  # Median
-    predicted_date_p90 = Column(DateTime, nullable=True)  # 90th percentile
+    predicted_date_p25 = Column(DateTime(timezone=True), nullable=True)  # 25th percentile
+    predicted_date_p50 = Column(DateTime(timezone=True), nullable=True)  # Median
+    predicted_date_p90 = Column(DateTime(timezone=True), nullable=True)  # 90th percentile
     confidence = Column(Float, nullable=True)
     risk_score = Column(Float, nullable=True)  # 0-1
 
     # Factors
-    risk_factors_json = Column(Text, default="[]")
+    risk_factors = Column(JSONB, default=[])
     model_version = Column(String(50), default="v1")
-    features_json = Column(Text, default="{}")
+    features = Column(JSONB, default={})
 
     # Accuracy tracking
-    actual_date = Column(DateTime, nullable=True)
+    actual_date = Column(DateTime(timezone=True), nullable=True)
     accuracy_score = Column(Float, nullable=True)
 
     organization = relationship("Organization", backref="predictions")
     task = relationship("Task", backref=backref("predictions", passive_deletes=True))
     user = relationship("User", backref="predictions")
 
-    @property
-    def risk_factors(self):
-        import json
-        return json.loads(self.risk_factors_json or "[]")
-
-    @risk_factors.setter
-    def risk_factors(self, value):
-        import json
-        self.risk_factors_json = json.dumps(value)
-
 
 class VelocitySnapshot(Base):
     """Team velocity snapshots for trending."""
     __tablename__ = "velocity_snapshots"
 
-    org_id = Column(String(36), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    team_id = Column(String(36), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    team_id = Column(PG_UUID(as_uuid=True), nullable=False, index=True)
 
-    period_start = Column(DateTime, nullable=False)
-    period_end = Column(DateTime, nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
 
     tasks_completed = Column(Integer, default=0)
     story_points_completed = Column(Float, default=0)

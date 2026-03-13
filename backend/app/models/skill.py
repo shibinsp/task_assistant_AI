@@ -3,11 +3,15 @@ TaskPulse - AI Assistant - Skill Model
 Employee skill tracking and analysis
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.orm import relationship
+import uuid
 import enum
 from datetime import datetime
 from typing import Optional, List
+
+from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.database import Base
 
@@ -45,7 +49,7 @@ class Skill(Base):
     __tablename__ = "skills"
 
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -56,10 +60,10 @@ class Skill(Base):
     description = Column(Text, nullable=True)
     category = Column(Enum(SkillCategory), default=SkillCategory.TECHNICAL)
 
-    # Metadata
-    aliases_json = Column(Text, default="[]")  # Alternative names
-    related_skills_json = Column(Text, default="[]")  # Related skill IDs
-    prerequisites_json = Column(Text, default="[]")  # Prerequisite skill IDs
+    # Metadata (native JSONB)
+    aliases = Column(JSONB, default=[])  # Alternative names
+    related_skills = Column(JSONB, default=[])  # Related skill IDs
+    prerequisites = Column(JSONB, default=[])  # Prerequisite skill IDs
 
     # Benchmarks
     org_average_level = Column(Float, nullable=True)
@@ -74,32 +78,6 @@ class Skill(Base):
     def __repr__(self) -> str:
         return f"<Skill(id={self.id}, name={self.name})>"
 
-    @property
-    def aliases(self) -> List[str]:
-        import json
-        try:
-            return json.loads(self.aliases_json or "[]")
-        except:
-            return []
-
-    @aliases.setter
-    def aliases(self, value: List[str]):
-        import json
-        self.aliases_json = json.dumps(value)
-
-    @property
-    def related_skills(self) -> List[str]:
-        import json
-        try:
-            return json.loads(self.related_skills_json or "[]")
-        except:
-            return []
-
-    @related_skills.setter
-    def related_skills(self, value: List[str]):
-        import json
-        self.related_skills_json = json.dumps(value)
-
 
 class UserSkill(Base):
     """
@@ -110,19 +88,19 @@ class UserSkill(Base):
     __tablename__ = "user_skills"
 
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     skill_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("skills.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -134,18 +112,18 @@ class UserSkill(Base):
     trend = Column(Enum(SkillTrend), default=SkillTrend.STABLE)
 
     # Evidence
-    last_demonstrated = Column(DateTime, nullable=True)
+    last_demonstrated = Column(DateTime(timezone=True), nullable=True)
     demonstration_count = Column(Integer, default=0)
     source = Column(String(50), default="inferred")  # inferred, self_reported, manager_assessed, certification
 
-    # History
-    level_history_json = Column(Text, default="[]")  # [{date, level}, ...]
+    # History (native JSONB)
+    level_history = Column(JSONB, default=[])  # [{date, level}, ...]
     notes = Column(Text, nullable=True)
 
     # Certification
     is_certified = Column(Boolean, default=False)
-    certification_date = Column(DateTime, nullable=True)
-    certification_expiry = Column(DateTime, nullable=True)
+    certification_date = Column(DateTime(timezone=True), nullable=True)
+    certification_expiry = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user = relationship("User", backref="user_skills")
@@ -155,22 +133,9 @@ class UserSkill(Base):
     def __repr__(self) -> str:
         return f"<UserSkill(user={self.user_id}, skill={self.skill_id}, level={self.level})>"
 
-    @property
-    def level_history(self) -> List[dict]:
-        import json
-        try:
-            return json.loads(self.level_history_json or "[]")
-        except:
-            return []
-
-    @level_history.setter
-    def level_history(self, value: List[dict]):
-        import json
-        self.level_history_json = json.dumps(value)
-
     def add_level_snapshot(self, new_level: float) -> None:
         """Add a level snapshot to history."""
-        history = self.level_history
+        history = list(self.level_history or [])
         history.append({
             "date": datetime.utcnow().isoformat(),
             "level": new_level
@@ -188,19 +153,19 @@ class SkillGap(Base):
     __tablename__ = "skill_gaps"
 
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     skill_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("skills.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -215,14 +180,14 @@ class SkillGap(Base):
     # Context
     for_role = Column(String(200), nullable=True)  # Role requiring this skill
     priority = Column(Integer, default=5)  # 1-10, higher = more important
-    identified_at = Column(DateTime, default=datetime.utcnow)
+    identified_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Resolution
     is_resolved = Column(Boolean, default=False)
-    resolved_at = Column(DateTime, nullable=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Recommendations
-    learning_resources_json = Column(Text, default="[]")
+    # Recommendations (native JSONB)
+    learning_resources = Column(JSONB, default=[])
 
     # Relationships
     user = relationship("User", backref="skill_gaps")
@@ -230,19 +195,6 @@ class SkillGap(Base):
 
     def __repr__(self) -> str:
         return f"<SkillGap(user={self.user_id}, skill={self.skill_id}, gap={self.gap_size})>"
-
-    @property
-    def learning_resources(self) -> List[dict]:
-        import json
-        try:
-            return json.loads(self.learning_resources_json or "[]")
-        except:
-            return []
-
-    @learning_resources.setter
-    def learning_resources(self, value: List[dict]):
-        import json
-        self.learning_resources_json = json.dumps(value)
 
 
 class SkillMetrics(Base):
@@ -254,21 +206,21 @@ class SkillMetrics(Base):
     __tablename__ = "skill_metrics"
 
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
 
     # Period
-    period_start = Column(DateTime, nullable=False)
-    period_end = Column(DateTime, nullable=False)
+    period_start = Column(DateTime(timezone=True), nullable=False)
+    period_end = Column(DateTime(timezone=True), nullable=False)
 
     # Velocity metrics
     task_completion_velocity = Column(Float, nullable=True)  # Tasks per week
@@ -307,13 +259,13 @@ class LearningPath(Base):
     __tablename__ = "learning_paths"
 
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -324,15 +276,15 @@ class LearningPath(Base):
     description = Column(Text, nullable=True)
     target_role = Column(String(200), nullable=True)
 
-    # Skills to develop
-    skills_json = Column(Text, default="[]")  # [{skill_id, target_level}, ...]
-    milestones_json = Column(Text, default="[]")  # Progress milestones
+    # Skills to develop (native JSONB)
+    skills_data = Column(JSONB, default=[])  # [{skill_id, target_level}, ...]
+    milestones = Column(JSONB, default=[])  # Progress milestones
 
     # Progress
     progress_percentage = Column(Float, default=0.0)
-    started_at = Column(DateTime, nullable=True)
-    target_completion = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    target_completion = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Status
     is_active = Column(Boolean, default=True)
@@ -344,29 +296,3 @@ class LearningPath(Base):
 
     def __repr__(self) -> str:
         return f"<LearningPath(user={self.user_id}, title={self.title[:30]})>"
-
-    @property
-    def skills(self) -> List[dict]:
-        import json
-        try:
-            return json.loads(self.skills_json or "[]")
-        except:
-            return []
-
-    @skills.setter
-    def skills(self, value: List[dict]):
-        import json
-        self.skills_json = json.dumps(value)
-
-    @property
-    def milestones(self) -> List[dict]:
-        import json
-        try:
-            return json.loads(self.milestones_json or "[]")
-        except:
-            return []
-
-    @milestones.setter
-    def milestones(self, value: List[dict]):
-        import json
-        self.milestones_json = json.dumps(value)

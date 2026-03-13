@@ -7,6 +7,7 @@ Models for tracking agent configuration, executions, and conversations.
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+import uuid
 from sqlalchemy import (
     Boolean,
     Column,
@@ -17,9 +18,10 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    JSON,
 )
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from ..database import Base
 
@@ -56,8 +58,7 @@ class Agent(Base):
     """
     __tablename__ = "agents"
 
-    id = Column(String(36), primary_key=True)
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Identity
     name = Column(String(100), nullable=False, unique=True)
@@ -67,26 +68,22 @@ class Agent(Base):
 
     # Classification
     agent_type = Column(SQLEnum(AgentType), nullable=False, default=AgentType.AI)
-    capabilities = Column(JSON, default=list)  # List of capability strings
+    capabilities = Column(JSONB, default=list)  # List of capability strings
 
     # Status
     status = Column(SQLEnum(AgentStatusDB), default=AgentStatusDB.ACTIVE)
     is_enabled = Column(Boolean, default=True)
 
     # Configuration
-    config = Column(JSON, default=dict)
-    permissions = Column(JSON, default=list)
+    config = Column(JSONB, default=dict)
+    permissions = Column(JSONB, default=list)
 
     # Metrics
     execution_count = Column(Integer, default=0)
     success_count = Column(Integer, default=0)
     error_count = Column(Integer, default=0)
     avg_duration_ms = Column(Float, nullable=True)
-    last_execution_at = Column(DateTime, nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_execution_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     organization = relationship("Organization", backref="agents")
@@ -104,29 +101,28 @@ class AgentExecution(Base):
     """
     __tablename__ = "agent_executions"
 
-    id = Column(String(36), primary_key=True)
-    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=False, index=True)
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
+    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Trigger information
     event_type = Column(String(100), nullable=False)
-    event_id = Column(String(36), nullable=True)
+    event_id = Column(PG_UUID(as_uuid=True), nullable=True)
     trigger_source = Column(String(100), nullable=True)  # user, system, scheduled, chain
 
     # Context
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=True)
-    task_id = Column(String(36), ForeignKey("tasks.id"), nullable=True)
-    context_data = Column(JSON, default=dict)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True)
+    context_data = Column(JSONB, default=dict)
 
     # Execution details
     status = Column(SQLEnum(ExecutionStatus), default=ExecutionStatus.PENDING)
-    started_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     duration_ms = Column(Integer, nullable=True)
 
     # Results
     success = Column(Boolean, default=False)
-    output_data = Column(JSON, default=dict)
+    output_data = Column(JSONB, default=dict)
     error_message = Column(Text, nullable=True)
     error_code = Column(String(50), nullable=True)
 
@@ -135,18 +131,15 @@ class AgentExecution(Base):
     api_calls = Column(Integer, default=0)
 
     # Chain information
-    parent_execution_id = Column(String(36), ForeignKey("agent_executions.id"), nullable=True)
+    parent_execution_id = Column(PG_UUID(as_uuid=True), ForeignKey("agent_executions.id"), nullable=True)
     chain_depth = Column(Integer, default=0)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     agent = relationship("Agent", back_populates="executions")
     organization = relationship("Organization")
     user = relationship("User")
     task = relationship("Task")
-    parent_execution = relationship("AgentExecution", remote_side=[id])
+    parent_execution = relationship("AgentExecution", remote_side="AgentExecution.id")
 
     def __repr__(self):
         return f"<AgentExecution(agent={self.agent_id}, status={self.status.value})>"
@@ -160,9 +153,8 @@ class AgentConversation(Base):
     """
     __tablename__ = "agent_conversations"
 
-    id = Column(String(36), primary_key=True)
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
-    user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
 
     # Conversation metadata
     title = Column(String(200), nullable=True)
@@ -173,13 +165,13 @@ class AgentConversation(Base):
     message_count = Column(Integer, default=0)
 
     # Conversation data
-    messages = Column(JSON, default=list)  # List of ConversationMessage dicts
-    context_data = Column(JSON, default=dict)  # Persistent context
+    messages = Column(JSONB, default=list)  # List of ConversationMessage dicts
+    context_data = Column(JSONB, default=dict)  # Persistent context
 
     # Timestamps
-    started_at = Column(DateTime, default=datetime.utcnow)
-    last_message_at = Column(DateTime, default=datetime.utcnow)
-    ended_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_message_at = Column(DateTime(timezone=True), server_default=func.now())
+    ended_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     organization = relationship("Organization")
@@ -225,9 +217,8 @@ class AgentSchedule(Base):
     """
     __tablename__ = "agent_schedules"
 
-    id = Column(String(36), primary_key=True)
-    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=False, index=True)
-    org_id = Column(String(36), ForeignKey("organizations.id"), nullable=False, index=True)
+    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, index=True)
+    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Schedule definition
     name = Column(String(100), nullable=False)
@@ -236,17 +227,13 @@ class AgentSchedule(Base):
 
     # Configuration
     is_enabled = Column(Boolean, default=True)
-    config = Column(JSON, default=dict)  # Additional config for scheduled run
+    config = Column(JSONB, default=dict)  # Additional config for scheduled run
 
     # Tracking
-    last_run_at = Column(DateTime, nullable=True)
-    next_run_at = Column(DateTime, nullable=True)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    next_run_at = Column(DateTime(timezone=True), nullable=True)
     run_count = Column(Integer, default=0)
     failure_count = Column(Integer, default=0)
-
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     agent = relationship("Agent")

@@ -4,6 +4,7 @@ Task management with subtasks, dependencies, and AI scoring
 """
 
 from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
@@ -61,7 +62,7 @@ class Task(Base):
 
     # Organization
     org_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -87,27 +88,27 @@ class Task(Base):
 
     # Assignment
     assigned_to = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     created_by = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=False
     )
 
     # Team/project grouping
-    team_id = Column(String(36), nullable=True, index=True)
-    project_id = Column(String(36), nullable=True, index=True)
+    team_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    project_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
 
     # Time tracking
-    deadline = Column(DateTime, nullable=True)
+    deadline = Column(DateTime(timezone=True), nullable=True)
     estimated_hours = Column(Float, nullable=True)
     actual_hours = Column(Float, default=0.0)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
 
     # AI-generated scores
     risk_score = Column(Float, nullable=True)  # 0.00 - 1.00
@@ -118,14 +119,14 @@ class Task(Base):
     blocker_type = Column(Enum(BlockerType), nullable=True)
     blocker_description = Column(Text, nullable=True)
 
-    # Metadata stored as JSON string
-    tools_json = Column(Text, default="[]")  # Tools involved
-    tags_json = Column(Text, default="[]")  # Custom tags
-    skills_required_json = Column(Text, default="[]")  # Required skills
+    # Metadata stored as native JSONB
+    tools = Column(JSONB, default=[])  # Tools involved
+    tags = Column(JSONB, default=[])  # Custom tags
+    skills_required = Column(JSONB, default=[])  # Required skills
 
     # Parent task (for subtasks)
     parent_task_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=True,
         index=True
@@ -156,46 +157,6 @@ class Task(Base):
 
     def __repr__(self) -> str:
         return f"<Task(id={self.id}, title={self.title[:30]}..., status={self.status})>"
-
-    # JSON property helpers
-    @property
-    def tools(self) -> List[str]:
-        import json
-        try:
-            return json.loads(self.tools_json or "[]")
-        except json.JSONDecodeError:
-            return []
-
-    @tools.setter
-    def tools(self, value: List[str]) -> None:
-        import json
-        self.tools_json = json.dumps(value)
-
-    @property
-    def tags(self) -> List[str]:
-        import json
-        try:
-            return json.loads(self.tags_json or "[]")
-        except json.JSONDecodeError:
-            return []
-
-    @tags.setter
-    def tags(self, value: List[str]) -> None:
-        import json
-        self.tags_json = json.dumps(value)
-
-    @property
-    def skills_required(self) -> List[str]:
-        import json
-        try:
-            return json.loads(self.skills_required_json or "[]")
-        except json.JSONDecodeError:
-            return []
-
-    @skills_required.setter
-    def skills_required(self, value: List[str]) -> None:
-        import json
-        self.skills_required_json = json.dumps(value)
 
     @property
     def is_subtask(self) -> bool:
@@ -267,13 +228,13 @@ class TaskDependency(Base):
     __tablename__ = "task_dependencies"
 
     task_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     depends_on_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -302,13 +263,13 @@ class TaskHistory(Base):
     __tablename__ = "task_history"
 
     task_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -318,24 +279,11 @@ class TaskHistory(Base):
     field_name = Column(String(100), nullable=True)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
-    details_json = Column(Text, default="{}")
+    details = Column(JSONB, default={})
 
     # Relationships
     task = relationship("Task", backref=backref("history", cascade="all, delete-orphan", passive_deletes=True))
     user = relationship("User", backref="task_changes")
-
-    @property
-    def details(self) -> dict:
-        import json
-        try:
-            return json.loads(self.details_json or "{}")
-        except json.JSONDecodeError:
-            return {}
-
-    @details.setter
-    def details(self, value: dict) -> None:
-        import json
-        self.details_json = json.dumps(value)
 
 
 class TaskComment(Base):
@@ -346,13 +294,13 @@ class TaskComment(Base):
     __tablename__ = "task_comments"
 
     task_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        String(36),
+        PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )

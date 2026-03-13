@@ -15,7 +15,7 @@
  */
 
 import axios from 'axios';
-import type { ApiTokenResponse } from '@/types/api';
+import { supabase } from '@/lib/supabase';
 
 const AUTH_STORAGE_KEY = 'taskpulse-auth';
 
@@ -146,19 +146,16 @@ apiClient.interceptors.response.use(
     originalRequest._retry = true;
     isRefreshing = true;
 
-    const { refreshToken } = getTokens();
-    if (!refreshToken) {
-      clearAuth();
-      return Promise.reject(error);
-    }
-
     try {
-      const { data } = await axios.post<ApiTokenResponse>('/api/v1/auth/refresh', {
-        refresh_token: refreshToken,
-      });
-      setTokens(data.access_token, data.refresh_token);
-      processQueue(null, data.access_token);
-      originalRequest.headers.Authorization = `Bearer ${data.access_token}`;
+      const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
+      if (refreshErr || !refreshData.session) {
+        throw refreshErr || new Error('No session after refresh');
+      }
+      const newAccessToken = refreshData.session.access_token;
+      const newRefreshToken = refreshData.session.refresh_token;
+      setTokens(newAccessToken, newRefreshToken);
+      processQueue(null, newAccessToken);
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
       return apiClient(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);

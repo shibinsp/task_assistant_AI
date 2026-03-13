@@ -234,10 +234,16 @@ class UnblockService:
         doc_id: str,
         org_id: str
     ) -> bool:
-        """Delete a document."""
+        """Delete a document and its storage file."""
         doc = await self.get_document(doc_id, org_id)
         if not doc:
             raise NotFoundException("Document", doc_id)
+
+        # Delete file from Supabase Storage if it was uploaded
+        if doc.storage_path:
+            from app.services.storage_service import StorageService
+            storage = StorageService()
+            await storage.delete_file(doc.storage_path)
 
         await self.db.delete(doc)
         await self.db.flush()

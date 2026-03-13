@@ -5,7 +5,7 @@ Database models for all entities
 
 # Phase 2 - Authentication & User Management
 from app.models.organization import Organization, PlanTier
-from app.models.user import User, Session, UserRole, SkillLevel
+from app.models.user import User, UserRole, SkillLevel
 
 # Phase 4 - Tasks
 from app.models.task import (
@@ -71,7 +71,7 @@ __all__ = [
     # Organization
     "Organization", "PlanTier",
     # User
-    "User", "Session", "UserRole", "SkillLevel",
+    "User", "UserRole", "SkillLevel",
     # Task
     "Task", "TaskDependency", "TaskHistory", "TaskComment",
     "TaskStatus", "TaskPriority", "BlockerType",
