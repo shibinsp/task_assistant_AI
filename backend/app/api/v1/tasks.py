@@ -4,6 +4,7 @@ Endpoints for task management
 """
 
 import asyncio
+import logging
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,8 @@ from app.api.v1.dependencies import (
 )
 from app.core.permissions import Permission, has_permission
 from app.core.exceptions import NotFoundException, ForbiddenException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
