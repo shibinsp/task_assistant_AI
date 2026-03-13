@@ -1,8 +1,9 @@
 """
 TaskPulse - AI Assistant - Database Configuration
-SQLite database setup with SQLAlchemy async support
+Database setup with SQLAlchemy async support (SQLite & PostgreSQL)
 """
 
+import logging
 from datetime import datetime
 from typing import AsyncGenerator
 import uuid
@@ -13,14 +14,28 @@ from sqlalchemy.orm import DeclarativeBase, declared_attr
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
-# Create async engine for SQLite
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DATABASE_ECHO,
-    future=True,
-    connect_args={"check_same_thread": False}  # Required for SQLite
-)
+_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+
+# Build engine kwargs based on database type
+_engine_kwargs: dict = {
+    "echo": settings.DATABASE_ECHO,
+    "future": True,
+}
+
+if _is_sqlite:
+    _engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    # PostgreSQL pool settings for production
+    _engine_kwargs["pool_size"] = 10
+    _engine_kwargs["max_overflow"] = 20
+    _engine_kwargs["pool_pre_ping"] = True
+    _engine_kwargs["pool_recycle"] = 300
+
+logger.info(f"Database backend: {'SQLite' if _is_sqlite else 'PostgreSQL'}")
+
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
@@ -75,17 +90,18 @@ class Base(DeclarativeBase):
         }
 
 
-# Enable foreign key support for SQLite
-@event.listens_for(engine.sync_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    """Enable foreign keys and other optimizations for SQLite."""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging for better concurrency
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA cache_size=10000")
-    cursor.execute("PRAGMA temp_store=MEMORY")
-    cursor.close()
+# Enable foreign key support for SQLite (no-op for PostgreSQL)
+if _is_sqlite:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        """Enable foreign keys and other optimizations for SQLite."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA cache_size=10000")
+        cursor.execute("PRAGMA temp_store=MEMORY")
+        cursor.close()
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
