@@ -2,7 +2,9 @@ node_modules/
 dist/
 .DS_Store
 .env
-.env.*
+.env.local
+.env.*.local
+!.env.example
 __pycache__/
 *.pyc
 venv/

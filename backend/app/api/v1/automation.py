@@ -20,8 +20,31 @@ from app.core.permissions import Permission, has_permission
 from app.core.exceptions import NotFoundException, ForbiddenException, ValidationException
 from app.utils.helpers import generate_uuid
 from pydantic import BaseModel, Field
+import logging
+import re
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Keys in agent config that contain secrets and must be redacted in API responses
+_SENSITIVE_CONFIG_KEY_PATTERNS = re.compile(
+    r"(password|secret|token|api_key|private_key|credential|auth)",
+    re.IGNORECASE,
+)
+
+
+def _redact_config(config: dict) -> dict:
+    """Return a copy of the agent config with sensitive values masked."""
+    if not config:
+        return {}
+    redacted = {}
+    for key, value in config.items():
+        if _SENSITIVE_CONFIG_KEY_PATTERNS.search(key) and value:
+            redacted[key] = "******"
+        else:
+            redacted[key] = value
+    return redacted
 
 
 # ==================== Schemas ====================
@@ -56,6 +79,7 @@ class AgentResponse(BaseModel):
     description: Optional[str]
     status: AgentStatus
     pattern_id: Optional[str]
+    config: dict = Field(default_factory=dict)
     shadow_match_rate: Optional[float]
     shadow_runs: int
     total_runs: int
@@ -160,6 +184,7 @@ async def accept_pattern(
     pattern.accepted_at = datetime.utcnow()
     await db.flush()
     await db.refresh(pattern)
+    await db.commit()
 
     return PatternResponse(
         id=pattern.id, name=pattern.name, description=pattern.description,
@@ -203,10 +228,11 @@ async def create_agent(
     db.add(agent)
     await db.flush()
     await db.refresh(agent)
+    await db.commit()  # Commit immediately so agent is available for subsequent requests
 
     return AgentResponse(
         id=agent.id, name=agent.name, description=agent.description,
-        status=agent.status, pattern_id=agent.pattern_id,
+        status=agent.status, pattern_id=agent.pattern_id, config=_redact_config(agent.config),
         shadow_match_rate=agent.shadow_match_rate, shadow_runs=agent.shadow_runs,
         total_runs=agent.total_runs, successful_runs=agent.successful_runs,
         hours_saved_total=agent.hours_saved_total, last_run_at=agent.last_run_at,
@@ -237,7 +263,7 @@ async def list_agents(
 
     return [AgentResponse(
         id=a.id, name=a.name, description=a.description, status=a.status,
-        pattern_id=a.pattern_id, shadow_match_rate=a.shadow_match_rate,
+        pattern_id=a.pattern_id, config=_redact_config(a.config), shadow_match_rate=a.shadow_match_rate,
         shadow_runs=a.shadow_runs, total_runs=a.total_runs,
         successful_runs=a.successful_runs, hours_saved_total=a.hours_saved_total,
         last_run_at=a.last_run_at, created_at=a.created_at
@@ -255,6 +281,9 @@ async def get_agent(
     db: AsyncSession = Depends(get_db)
 ):
     """Get AI agent details."""
+    if not has_permission(current_user.role, Permission.AUTOMATION_VIEW):
+        raise ForbiddenException("Not authorized")
+
     result = await db.execute(
         select(AIAgent).where(AIAgent.id == agent_id, AIAgent.org_id == current_user.org_id)
     )
@@ -264,7 +293,7 @@ async def get_agent(
 
     return AgentResponse(
         id=agent.id, name=agent.name, description=agent.description,
-        status=agent.status, pattern_id=agent.pattern_id,
+        status=agent.status, pattern_id=agent.pattern_id, config=_redact_config(agent.config),
         shadow_match_rate=agent.shadow_match_rate, shadow_runs=agent.shadow_runs,
         total_runs=agent.total_runs, successful_runs=agent.successful_runs,
         hours_saved_total=agent.hours_saved_total, last_run_at=agent.last_run_at,
@@ -297,6 +326,24 @@ async def update_agent_status(
         raise NotFoundException("Agent", agent_id)
 
     old_status = agent.status
+
+    # Validate status transitions
+    VALID_AGENT_TRANSITIONS = {
+        AgentStatus.CREATED: [AgentStatus.SHADOW],
+        AgentStatus.SHADOW: [AgentStatus.SUPERVISED, AgentStatus.PAUSED],
+        AgentStatus.SUPERVISED: [AgentStatus.LIVE, AgentStatus.SHADOW, AgentStatus.PAUSED],
+        AgentStatus.LIVE: [AgentStatus.SUPERVISED, AgentStatus.PAUSED, AgentStatus.RETIRED],
+        AgentStatus.PAUSED: [AgentStatus.SHADOW, AgentStatus.SUPERVISED, AgentStatus.LIVE, AgentStatus.RETIRED],
+        AgentStatus.RETIRED: [],  # Terminal state
+    }
+
+    allowed = VALID_AGENT_TRANSITIONS.get(old_status, [])
+    if status_data.status not in allowed:
+        raise ValidationException(
+            f"Cannot transition from {old_status.value} to {status_data.status.value}. "
+            f"Allowed transitions: {[s.value for s in allowed]}"
+        )
+
     agent.status = status_data.status
 
     # Track shadow mode start
@@ -311,6 +358,7 @@ async def update_agent_status(
 
     await db.flush()
     await db.refresh(agent)
+    await db.commit()
 
     # Register/unregister cron jobs based on status change
     from app.services.automation_scheduler import register_agent_cron, unregister_agent_cron
@@ -321,7 +369,7 @@ async def update_agent_status(
 
     return AgentResponse(
         id=agent.id, name=agent.name, description=agent.description,
-        status=agent.status, pattern_id=agent.pattern_id,
+        status=agent.status, pattern_id=agent.pattern_id, config=_redact_config(agent.config),
         shadow_match_rate=agent.shadow_match_rate, shadow_runs=agent.shadow_runs,
         total_runs=agent.total_runs, successful_runs=agent.successful_runs,
         hours_saved_total=agent.hours_saved_total, last_run_at=agent.last_run_at,
@@ -363,11 +411,12 @@ async def trigger_agent(
     from app.services.automation_executor import AutomationExecutor
     executor = AutomationExecutor(db)
 
+    # User-supplied data first, then system fields override to prevent spoofing
     trigger_data = {
+        **trigger_request.trigger_data,
         "trigger_type": "manual",
         "triggered_by": current_user.id,
         "triggered_at": datetime.utcnow().isoformat(),
-        **trigger_request.trigger_data,
     }
 
     is_shadow = (agent.status == AgentStatus.SHADOW)
@@ -445,6 +494,9 @@ async def get_shadow_report(
     db: AsyncSession = Depends(get_db)
 ):
     """Get shadow mode validation report from real execution data."""
+    if not has_permission(current_user.role, Permission.AUTOMATION_VIEW):
+        raise ForbiddenException("Not authorized")
+
     from app.services.automation_service import AutomationService
     service = AutomationService(db)
     report = await service.get_shadow_report(agent_id, current_user.org_id)
