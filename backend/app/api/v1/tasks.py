@@ -805,12 +805,24 @@ async def decompose_task(
         raise NotFoundException("Task", task_id)
 
     ai_service = get_ai_service()
-    result = await ai_service.decompose_task(
-        title=task.title,
-        description=task.description or "",
-        goal=task.goal,
-        max_subtasks=request.max_subtasks
-    )
+    try:
+        result = await ai_service.decompose_task(
+            title=task.title,
+            description=task.description or "",
+            goal=task.goal,
+            max_subtasks=request.max_subtasks
+        )
+    except Exception as e:
+        logger.warning(f"AI decomposition failed for task {task_id}: {e}")
+        # Graceful degradation: return empty result with informative message
+        return TaskDecompositionResponse(
+            task_id=task_id,
+            suggested_subtasks=[],
+            total_estimated_hours=0,
+            complexity_score=0,
+            risk_factors=["AI service unavailable — decomposition could not be completed"],
+            recommendations=["Try again later or manually create subtasks"]
+        )
 
     return TaskDecompositionResponse(
         task_id=task_id,

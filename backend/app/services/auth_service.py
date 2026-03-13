@@ -111,6 +111,11 @@ class AuthService:
             user_agent=user_agent
         )
 
+        # Explicit commit to ensure user record is persisted before returning tokens.
+        # Without this, the get_db() context manager commits AFTER the endpoint returns,
+        # causing login failures when clients immediately use the returned tokens.
+        await self.db.commit()
+
         logger.info(f"User registered: {user.email} in org {org.name}")
 
         return user, org, tokens
