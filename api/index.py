@@ -1,47 +1,46 @@
 """Vercel serverless function — FastAPI backend."""
+from http.server import BaseHTTPRequestHandler
+import json
 import sys
 import os
-import traceback
 
-# Pre-import FastAPI before anything else
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 
-# Add backend to Python path
-_backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend')
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
+class handler(BaseHTTPRequestHandler):
+    """Fallback handler using stdlib only (no pip deps)."""
 
-# Don't override ENVIRONMENT if Vercel already set it
-os.environ.setdefault("ENVIRONMENT", "development")
+    def do_GET(self):
+        # Try to import the main app and report results
+        errors = []
+        app_loaded = False
+        backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend')
 
-_import_error = None
-_main_app = None
+        try:
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+            os.environ.setdefault("ENVIRONMENT", "development")
 
-try:
-    from app.main import app as _main_app  # noqa: E402
-except Exception:
-    _import_error = traceback.format_exc()
+            from app.main import app  # noqa: F401
+            app_loaded = True
+        except Exception as e:
+            import traceback
+            errors.append(traceback.format_exc())
 
-if _main_app is not None:
-    app = _main_app
-else:
-    app = FastAPI(title="TaskPulse API - Import Error")
+        self.send_response(200 if app_loaded else 500)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "status": "ok" if app_loaded else "error",
+            "app_loaded": app_loaded,
+            "errors": errors,
+            "python": sys.version,
+            "cwd": os.getcwd(),
+            "backend_dir": backend_dir,
+            "backend_exists": os.path.isdir(backend_dir),
+            "env_keys": sorted([k for k in os.environ if k.startswith(("SUPABASE", "DATABASE", "AI_", "SECRET", "ENV"))]),
+        }, indent=2).encode())
 
-    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
-    async def error_handler(path: str = ""):
-        return JSONResponse(
-            status_code=500,
-            content={
-                "error": "Backend failed to import",
-                "traceback": _import_error or "Unknown error",
-                "python": sys.version,
-                "cwd": os.getcwd(),
-                "backend_dir_exists": os.path.isdir(_backend_dir),
-                "env_vars": {
-                    k: ("***" if "KEY" in k or "SECRET" in k or "PASSWORD" in k else v[:50])
-                    for k, v in os.environ.items()
-                    if k.startswith(("SUPABASE", "DATABASE", "AI_", "SECRET", "ENVIRONMENT"))
-                },
-            },
-        )
+    do_POST = do_GET
+    do_PUT = do_GET
+    do_PATCH = do_GET
+    do_DELETE = do_GET
+    do_OPTIONS = do_GET
