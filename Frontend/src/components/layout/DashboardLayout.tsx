@@ -107,10 +107,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         initial={false}
         animate={{ width: sidebarOpen ? 280 : 80 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="hidden lg:flex flex-col border-r border-border/50 bg-card/50 backdrop-blur-xl fixed h-full z-30"
+        className="hidden lg:flex flex-col border-r border-sidebar-border bg-sidebar fixed h-full z-30"
       >
         {/* Logo */}
-        <div className="h-16 flex items-center px-4 border-b border-border/50">
+        <div className="h-16 flex items-center px-4 border-b border-sidebar-border">
           <Link to="/dashboard" className="flex items-center gap-3 overflow-hidden">
             <img src="/beeax-logo.jpeg" alt="TaskPulse" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
             <AnimatePresence>
@@ -119,7 +119,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  className="text-lg font-bold whitespace-nowrap"
+                  className="text-lg font-bold whitespace-nowrap text-foreground"
                 >
                   TaskPulse
                 </motion.span>
@@ -141,8 +141,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 title={!sidebarOpen ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 } ${!sidebarOpen ? 'justify-center' : ''}`}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? '' : 'group-hover:scale-110'} transition-transform`} />
@@ -171,14 +171,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-3 border-t border-border/50 space-y-1">
+        <div className="p-3 border-t border-sidebar-border space-y-1">
           <Link
             to="/settings"
             title={!sidebarOpen ? 'Settings' : undefined}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
               location.pathname === '/settings'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
             } ${!sidebarOpen ? 'justify-center' : ''}`}
           >
             <Settings className="w-5 h-5 flex-shrink-0" />
@@ -200,7 +200,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
           <button
             onClick={toggleSidebar}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
           >
             {sidebarOpen ? (
               <>
@@ -239,14 +239,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         initial={{ x: '-100%' }}
         animate={{ x: mobileMenuOpen ? 0 : '-100%' }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-card border-r border-border/50 z-50 flex flex-col"
+        className="lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-sidebar border-r border-sidebar-border z-50 flex flex-col"
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-border/50">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
           <Link to="/dashboard" className="flex items-center gap-3">
             <img src="/beeax-logo.jpeg" alt="TaskPulse" className="w-10 h-10 rounded-xl object-cover" />
-            <span className="text-lg font-bold">TaskPulse</span>
+            <span className="text-lg font-bold text-foreground">TaskPulse</span>
           </Link>
-          <button onClick={() => setMobileMenuOpen(false)}>
+          <button onClick={() => setMobileMenuOpen(false)} className="text-muted-foreground hover:text-foreground">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -255,7 +255,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           {sidebarItems.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
-            
+
             return (
               <Link
                 key={item.href}
@@ -263,8 +263,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 }`}
               >
                 <Icon className="w-5 h-5" />
