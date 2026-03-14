@@ -35,13 +35,20 @@ _SENSITIVE_CONFIG_KEY_PATTERNS = re.compile(
 
 
 def _redact_config(config: dict) -> dict:
-    """Return a copy of the agent config with sensitive values masked."""
+    """Return a copy of the agent config with sensitive values masked (recursive)."""
     if not config:
         return {}
     redacted = {}
     for key, value in config.items():
         if _SENSITIVE_CONFIG_KEY_PATTERNS.search(key) and value:
             redacted[key] = "******"
+        elif isinstance(value, dict):
+            redacted[key] = _redact_config(value)
+        elif isinstance(value, list):
+            redacted[key] = [
+                _redact_config(item) if isinstance(item, dict) else item
+                for item in value
+            ]
         else:
             redacted[key] = value
     return redacted
