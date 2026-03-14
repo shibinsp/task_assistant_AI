@@ -7,7 +7,7 @@ from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from app.database import Base, Enum
@@ -174,7 +174,7 @@ class Task(Base):
     def is_overdue(self) -> bool:
         if not self.deadline:
             return False
-        return datetime.utcnow() > self.deadline and not self.is_completed
+        return datetime.now(timezone.utc) > self.deadline and not self.is_completed
 
     @property
     def progress_percentage(self) -> float:
@@ -207,9 +207,9 @@ class Task(Base):
 
         # Update timestamps
         if new_status == TaskStatus.IN_PROGRESS and not self.started_at:
-            self.started_at = datetime.utcnow()
+            self.started_at = datetime.now(timezone.utc)
         elif new_status == TaskStatus.DONE:
-            self.completed_at = datetime.utcnow()
+            self.completed_at = datetime.now(timezone.utc)
 
         # Clear blocker info when unblocked
         if old_status == TaskStatus.BLOCKED and new_status != TaskStatus.BLOCKED:
