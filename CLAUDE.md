@@ -28,7 +28,8 @@ Types: `fix`, `feat`, `refactor`, `docs`, `test`, `chore`
 
 ### Git Author Rules
 - **Author name**: Always `shibinsp` — never use any other name
-- **NEVER** add `Co-Authored-By` lines in commits — no Claude, no AI co-author tags
+- **NEVER** add `Co-Authored-By: Claude` or any AI co-author tags in commits
+- Always add `Co-Authored-By: Beeax` at the end of commit messages
 - Local git config must be: `user.name = shibinsp`
 
 ### PR Description Format
