@@ -22,10 +22,14 @@
 <optional detailed description>
 
 Fixes #<issue-number>
-Co-Authored-By: <author>
 ```
 
 Types: `fix`, `feat`, `refactor`, `docs`, `test`, `chore`
+
+### Git Author Rules
+- **Author name**: Always `shibinsp` — never use any other name
+- **NEVER** add `Co-Authored-By` lines in commits — no Claude, no AI co-author tags
+- Local git config must be: `user.name = shibinsp`
 
 ### PR Description Format
 - Summary section with bullet points
