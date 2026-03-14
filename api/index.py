@@ -2,12 +2,15 @@
 Vercel serverless function — TaskPulse FastAPI backend.
 
 Uses the handler class pattern (compatible with @vercel/python in builds config)
-to serve the FastAPI app via a2wsgi ASGI-to-WSGI bridge.
+to serve the FastAPI app. A persistent event loop in a background thread ensures
+SQLAlchemy async connections work across multiple requests in a warm container.
 """
 import sys
 import os
 import io
 import json
+import asyncio
+import threading
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, unquote
 
@@ -18,7 +21,17 @@ if _backend_dir not in sys.path:
 
 os.environ.setdefault("ENVIRONMENT", "development")
 
-# Import the FastAPI app
+# ── Persistent event loop ─────────────────────────────────────────────────
+# SQLAlchemy's async engine binds connections to the event loop that created
+# them. Using asyncio.run() per request creates a NEW loop each time, causing
+# "Future attached to a different loop" errors on warm containers.
+# Solution: one long-lived loop in a daemon thread, shared across requests.
+_loop = asyncio.new_event_loop()
+_thread = threading.Thread(target=_loop.run_forever, daemon=True)
+_thread.start()
+
+# Import the FastAPI app (runs in the main thread; engine is created here
+# but connections will be lazily opened on the persistent loop above)
 _app = None
 _import_error = None
 try:
@@ -29,9 +42,7 @@ except Exception:
 
 
 def _run_asgi_sync(scope, body=b""):
-    """Run an ASGI app synchronously and return (status, headers, body)."""
-    import asyncio
-
+    """Run an ASGI app on the persistent event loop and return (status, headers, body)."""
     response_started = False
     status_code = 500
     response_headers = []
@@ -56,17 +67,10 @@ def _run_asgi_sync(scope, body=b""):
     async def run():
         await _app(scope, receive, send)
 
-    # Get or create event loop
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                pool.submit(lambda: asyncio.run(run())).result()
-        else:
-            loop.run_until_complete(run())
-    except RuntimeError:
-        asyncio.run(run())
+    # Submit the coroutine to the persistent loop and wait for the result.
+    # Timeout slightly under Vercel's 30 s limit so we can return an error.
+    future = asyncio.run_coroutine_threadsafe(run(), _loop)
+    future.result(timeout=28)
 
     return status_code, response_headers, response_body.getvalue()
 
