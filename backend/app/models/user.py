@@ -88,9 +88,9 @@ class User(Base):
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     is_email_verified = Column(Boolean, default=False)
-    last_login = Column(DateTime, nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
     failed_login_attempts = Column(Integer, default=0)
-    lockout_until = Column(DateTime, nullable=True)  # Account lockout after failed attempts
+    lockout_until = Column(DateTime(timezone=True), nullable=True)  # Account lockout after failed attempts
 
     # Relationships
     organization = relationship("Organization", back_populates="users")
