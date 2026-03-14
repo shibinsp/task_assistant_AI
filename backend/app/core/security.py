@@ -9,15 +9,50 @@ Legacy local JWT functions are kept for migration backward compatibility.
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
 import hashlib
+import json
 import secrets
 import logging
+import time
 
 import bcrypt
-from jose import JWTError, jwt
+import httpx
+from jose import JWTError, jwt, jwk
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== JWKS Cache ====================
+
+_jwks_cache: Optional[dict] = None
+_jwks_cache_time: float = 0
+_JWKS_CACHE_TTL = 3600  # Cache JWKS for 1 hour
+
+
+def _get_jwks_keys() -> list[dict]:
+    """Fetch and cache JWKS public keys from Supabase."""
+    global _jwks_cache, _jwks_cache_time
+
+    now = time.time()
+    if _jwks_cache and (now - _jwks_cache_time) < _JWKS_CACHE_TTL:
+        return _jwks_cache.get("keys", [])
+
+    try:
+        resp = httpx.get(
+            f"{settings.SUPABASE_URL}/auth/v1/.well-known/jwks.json",
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        _jwks_cache = resp.json()
+        _jwks_cache_time = now
+        return _jwks_cache.get("keys", [])
+    except Exception as exc:
+        logger.warning("Failed to fetch JWKS: %s", exc)
+        # Return cached keys if available, even if expired
+        if _jwks_cache:
+            return _jwks_cache.get("keys", [])
+        return []
 
 
 # ==================== Supabase Auth ====================
@@ -26,23 +61,69 @@ def verify_supabase_token(token: str) -> Optional[dict]:
     """
     Verify a Supabase-issued JWT token.
 
-    Decodes the token using the project's SUPABASE_JWT_SECRET and validates
-    the audience claim (must be "authenticated").
+    Supports both ES256 (ECDSA, newer Supabase projects) and HS256 (HMAC,
+    legacy) signed tokens. For ES256, fetches the public key from the
+    Supabase JWKS endpoint and caches it.
 
     Args:
         token: Supabase JWT access token string
 
     Returns:
-        Decoded payload dict on success containing keys such as:
-            sub             - Supabase user UUID
-            email           - user email
-            role            - Supabase role (e.g. "authenticated")
-            aud             - audience ("authenticated")
-            exp, iat        - timestamps
-            app_metadata    - Supabase app metadata
-            user_metadata   - Supabase user metadata
-        None on any verification failure.
+        Decoded payload dict on success, None on verification failure.
     """
+    # Peek at the token header to determine the algorithm
+    try:
+        header = jwt.get_unverified_header(token)
+    except JWTError:
+        return None
+
+    alg = header.get("alg", "HS256")
+    kid = header.get("kid")
+
+    if alg == "ES256":
+        return _verify_es256_token(token, kid)
+    else:
+        return _verify_hs256_token(token)
+
+
+def _verify_es256_token(token: str, kid: Optional[str]) -> Optional[dict]:
+    """Verify an ES256-signed Supabase JWT using JWKS public key."""
+    keys = _get_jwks_keys()
+    if not keys:
+        logger.warning("No JWKS keys available for ES256 verification")
+        return None
+
+    # Find matching key by kid
+    jwk_data = None
+    for k in keys:
+        if kid and k.get("kid") == kid:
+            jwk_data = k
+            break
+    if jwk_data is None:
+        # Fallback to first key if no kid match
+        jwk_data = keys[0]
+
+    try:
+        # Construct the public key from JWK
+        public_key = jwk.construct(jwk_data, algorithm="ES256")
+
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["ES256"],
+            audience="authenticated",
+        )
+        return payload
+    except JWTError as exc:
+        logger.debug("ES256 token verification failed: %s", exc)
+        return None
+    except Exception as exc:
+        logger.debug("ES256 key construction or verification error: %s", exc)
+        return None
+
+
+def _verify_hs256_token(token: str) -> Optional[dict]:
+    """Verify an HS256-signed Supabase JWT using the JWT secret."""
     try:
         payload = jwt.decode(
             token,
@@ -52,7 +133,7 @@ def verify_supabase_token(token: str) -> Optional[dict]:
         )
         return payload
     except JWTError as exc:
-        logger.debug("Supabase token verification failed: %s", exc)
+        logger.debug("HS256 token verification failed: %s", exc)
         return None
 
 
