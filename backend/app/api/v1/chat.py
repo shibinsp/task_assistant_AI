@@ -5,7 +5,7 @@ Real-time chat and conversation management with AI agents.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -115,8 +115,8 @@ async def send_message(
             "agent_name": "chat_agent",
             "messages": [],
             "context_data": {},
-            "started_at": datetime.utcnow().isoformat(),
-            "last_message_at": datetime.utcnow().isoformat(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "last_message_at": datetime.now(timezone.utc).isoformat(),
             "is_active": True,
         }
 
@@ -127,7 +127,7 @@ async def send_message(
         "id": str(uuid4()),
         "role": "user",
         "content": request.message,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     conversation["messages"].append(user_message)
 
@@ -141,7 +141,7 @@ async def send_message(
         )
 
         # Add agent response to conversation
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         response_text = result.message or "I'm here to help! Try asking about your tasks, or describe a task you'd like to create."
         agent_message = {
             "id": str(uuid4()),
@@ -177,7 +177,7 @@ async def send_message(
 
     except Exception as e:
         # Fallback response on error
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         error_msg = {
             "id": str(uuid4()),
             "role": "assistant",
@@ -465,8 +465,8 @@ async def websocket_chat(websocket: WebSocket):
                 "agent_name": "chat_agent",
                 "messages": [],
                 "context_data": {},
-                "started_at": datetime.utcnow().isoformat(),
-                "last_message_at": datetime.utcnow().isoformat(),
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "last_message_at": datetime.now(timezone.utc).isoformat(),
                 "is_active": True,
             }
 
@@ -487,7 +487,7 @@ async def websocket_chat(websocket: WebSocket):
                 "id": str(uuid4()),
                 "role": "user",
                 "content": message,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             conversation["messages"].append(user_message)
 
@@ -507,11 +507,11 @@ async def websocket_chat(websocket: WebSocket):
                     "role": "assistant",
                     "content": result.message,
                     "agent_name": result.agent_name,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "metadata": result.output,
                 }
                 conversation["messages"].append(agent_message)
-                conversation["last_message_at"] = datetime.utcnow().isoformat()
+                conversation["last_message_at"] = datetime.now(timezone.utc).isoformat()
 
                 await websocket.send_json({
                     "type": "message",
@@ -572,7 +572,7 @@ async def push_system_message_to_user(
         "content": content,
         "suggestions": suggestions or [],
         "metadata": metadata or {},
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     dead_connections = []

@@ -4,7 +4,7 @@ Agent Database Models
 Models for tracking agent configuration, executions, and conversations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 import uuid
@@ -186,7 +186,7 @@ class AgentConversation(Base):
             "content": content,
             "agent_name": agent_name,
             "metadata": metadata or {},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         if self.messages is None:
@@ -194,7 +194,7 @@ class AgentConversation(Base):
 
         self.messages.append(message)
         self.message_count = len(self.messages)
-        self.last_message_at = datetime.utcnow()
+        self.last_message_at = datetime.now(timezone.utc)
 
         return message
 

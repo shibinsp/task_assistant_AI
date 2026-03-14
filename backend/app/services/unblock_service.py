@@ -4,7 +4,7 @@ RAG-powered AI assistance for unblocking tasks
 """
 
 from typing import Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,7 +95,7 @@ class UnblockService:
                 self.db.add(chunk)
 
             doc.status = DocumentStatus.INDEXED
-            doc.processed_at = datetime.utcnow()
+            doc.processed_at = datetime.now(timezone.utc)
 
         except Exception as e:
             doc.status = DocumentStatus.FAILED
@@ -413,7 +413,7 @@ class UnblockService:
 
         session.was_helpful = feedback.was_helpful
         session.feedback_text = feedback.feedback_text
-        session.feedback_at = datetime.utcnow()
+        session.feedback_at = datetime.now(timezone.utc)
 
         # Update document helpfulness counts
         if session.sources:

@@ -4,7 +4,7 @@ Business logic for the Smart Check-In Engine
 """
 
 from typing import Optional, List, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -66,7 +66,7 @@ class CheckInService:
         )
         cycle_number = (cycle_count.scalar() or 0) + 1
 
-        scheduled = scheduled_at or datetime.utcnow()
+        scheduled = scheduled_at or datetime.now(timezone.utc)
         expires = scheduled + timedelta(hours=expires_hours)
 
         checkin = CheckIn(
@@ -179,7 +179,7 @@ class CheckInService:
 
         # Update check-in with response
         checkin.status = CheckInStatus.RESPONDED
-        checkin.responded_at = datetime.utcnow()
+        checkin.responded_at = datetime.now(timezone.utc)
         checkin.progress_indicator = response.progress_indicator
         checkin.progress_notes = response.progress_notes
         checkin.completed_since_last = response.completed_since_last
@@ -236,7 +236,7 @@ class CheckInService:
             raise ValidationException(f"Check-in is already {checkin.status.value}")
 
         checkin.status = CheckInStatus.SKIPPED
-        checkin.responded_at = datetime.utcnow()
+        checkin.responded_at = datetime.now(timezone.utc)
         checkin.progress_notes = f"Skipped: {skip_data.reason}" if skip_data.reason else "Skipped"
 
         await self.db.flush()
@@ -263,7 +263,7 @@ class CheckInService:
 
         checkin.escalated = True
         checkin.escalated_to = escalation.escalate_to
-        checkin.escalated_at = datetime.utcnow()
+        checkin.escalated_at = datetime.now(timezone.utc)
         checkin.escalation_reason = escalation.reason
         checkin.status = CheckInStatus.ESCALATED
 
@@ -298,7 +298,7 @@ class CheckInService:
                 and_(
                     CheckIn.org_id == org_id,
                     CheckIn.status == CheckInStatus.PENDING,
-                    CheckIn.expires_at < datetime.utcnow(),
+                    CheckIn.expires_at < datetime.now(timezone.utc),
                     CheckIn.escalated == False
                 )
             ).options(selectinload(CheckIn.task), selectinload(CheckIn.user))
@@ -321,7 +321,7 @@ class CheckInService:
                 if checkin.user and checkin.user.manager_id:
                     checkin.escalated = True
                     checkin.escalated_to = checkin.user.manager_id
-                    checkin.escalated_at = datetime.utcnow()
+                    checkin.escalated_at = datetime.now(timezone.utc)
                     checkin.escalation_reason = f"Auto-escalated after {missed_count} missed check-ins"
                     checkin.status = CheckInStatus.ESCALATED
                     escalated_count += 1
@@ -506,7 +506,7 @@ class CheckInService:
         days: int = 30
     ) -> dict:
         """Get check-in statistics."""
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         base_query = select(CheckIn).where(
             and_(CheckIn.org_id == org_id, CheckIn.scheduled_at >= since)
         )

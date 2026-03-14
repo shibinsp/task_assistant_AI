@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -206,7 +206,7 @@ async def get_system_health(
             "total_mb": 10240
         },
         active_alerts=[],
-        snapshot_time=datetime.utcnow()
+        snapshot_time=datetime.now(timezone.utc)
     )
 
 
@@ -253,7 +253,7 @@ async def request_gdpr_export(
     return GDPRExportResponse(
         request_id=request.id,
         status="pending",
-        estimated_completion=datetime.utcnow() + timedelta(hours=24),
+        estimated_completion=datetime.now(timezone.utc) + timedelta(hours=24),
         message="Data export request submitted. You will be notified when ready."
     )
 
@@ -320,7 +320,7 @@ async def get_ai_governance(
         "model_info": {
             "provider": "mock",
             "version": "v1.0",
-            "last_updated": datetime.utcnow().isoformat()
+            "last_updated": datetime.now(timezone.utc).isoformat()
         },
         "usage_stats": {
             "total_requests_30d": 15000,
@@ -335,7 +335,7 @@ async def get_ai_governance(
         "bias_monitoring": {
             "gender_bias_score": 0.05,
             "role_bias_score": 0.08,
-            "last_audit": datetime.utcnow().isoformat()
+            "last_audit": datetime.now(timezone.utc).isoformat()
         },
         "human_overrides": {
             "total_30d": 45,
@@ -396,7 +396,7 @@ async def create_api_key(
 
     expires_at = None
     if key_data.expires_in_days:
-        expires_at = datetime.utcnow() + timedelta(days=key_data.expires_in_days)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=key_data.expires_in_days)
 
     api_key = APIKey(
         id=generate_uuid(),

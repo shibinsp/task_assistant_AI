@@ -5,7 +5,7 @@ Employee skill tracking and analysis
 
 import uuid
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
@@ -137,7 +137,7 @@ class UserSkill(Base):
         """Add a level snapshot to history."""
         history = list(self.level_history or [])
         history.append({
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "level": new_level
         })
         # Keep last 50 entries

@@ -4,7 +4,7 @@ ML-powered forecasting for tasks, velocity, and hiring
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 import random
@@ -49,7 +49,7 @@ class PredictionService:
         adjusted_hours = base_hours * historical_factor
 
         # Calculate P25, P50, P90 estimates
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         p50_hours = adjusted_hours
         p25_hours = adjusted_hours * 0.7  # Optimistic
         p90_hours = adjusted_hours * 1.5  # Pessimistic
@@ -201,7 +201,7 @@ class PredictionService:
                 risk_factors.extend(prediction.get("risk_factors", []))
 
         avg_risk = total_risk / len(tasks) if tasks else 0
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Account for parallelization (assume 2 parallel streams)
         parallel_factor = 0.6
@@ -382,7 +382,7 @@ class PredictionService:
         days: int = 30
     ) -> Dict[str, Any]:
         """Get prediction accuracy metrics."""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await self.db.execute(
             select(Prediction).where(

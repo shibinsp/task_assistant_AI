@@ -6,7 +6,7 @@ Report generation and analytics endpoints
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -109,7 +109,7 @@ async def get_my_team_productivity(
 ):
     """Get productivity report for the current user's team."""
     team_id = current_user.team_id or current_user.org_id
-    end = datetime.utcnow()
+    end = datetime.now(timezone.utc)
     period_days = {"week": 7, "month": 30, "quarter": 90}.get(period or "month", 30)
     start = end - timedelta(days=period_days)
 
@@ -198,7 +198,7 @@ async def generate_report(
         raise ForbiddenException("Not authorized to generate reports")
 
     # Set default dates if not provided
-    end_date = request.end_date or datetime.utcnow()
+    end_date = request.end_date or datetime.now(timezone.utc)
     start_date = request.start_date or (end_date - timedelta(days=30))
 
     if request.report_type == "team_productivity":
@@ -251,7 +251,7 @@ async def get_team_productivity_report(
     service: ReportService = Depends(get_report_service)
 ):
     """Generate team productivity report."""
-    end = end_date or datetime.utcnow()
+    end = end_date or datetime.now(timezone.utc)
     start = start_date or (end - timedelta(days=30))
 
     report = await service.generate_team_productivity_report(

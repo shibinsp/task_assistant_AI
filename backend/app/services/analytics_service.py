@@ -4,7 +4,7 @@ Dashboard metrics and reporting analytics
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, case
 
@@ -59,7 +59,7 @@ class AnalyticsService:
             "completion_metrics": completion_metrics,
             "blocker_analysis": blocker_metrics,
             "recent_activity": recent_activity,
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat()
         }
 
     async def _get_status_counts(self, filters: List) -> Dict[str, int]:
@@ -89,7 +89,7 @@ class AnalyticsService:
         user_id: Optional[str]
     ) -> Dict[str, Any]:
         """Get completion rate metrics."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
 
@@ -291,7 +291,7 @@ class AnalyticsService:
     ) -> Dict[str, Any]:
         """Get velocity data for charting."""
         data_points = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         filters = [Task.org_id == org_id, Task.status == TaskStatus.DONE]
         if team_id:
@@ -405,7 +405,7 @@ class AnalyticsService:
             "bottlenecks": bottlenecks,
             "bottleneck_count": len(bottlenecks),
             "health_score": max(0, 100 - len(bottlenecks) * 15),
-            "analysis_time": datetime.utcnow().isoformat()
+            "analysis_time": datetime.now(timezone.utc).isoformat()
         }
 
     async def get_check_in_summary(
@@ -415,7 +415,7 @@ class AnalyticsService:
         days: int = 7
     ) -> Dict[str, Any]:
         """Get check-in activity summary."""
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
         filters = [CheckIn.org_id == org_id, CheckIn.created_at >= cutoff]
         if team_id:

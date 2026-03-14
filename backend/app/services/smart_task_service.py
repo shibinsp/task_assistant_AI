@@ -6,7 +6,7 @@ Coordinates AI-powered task creation with decomposition and check-in scheduling.
 import json
 import logging
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,7 +39,7 @@ class SmartTaskService:
         Returns:
             Dict with title, description, deadline, work hours, priority, etc.
         """
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         system_prompt = f"""You are a task management AI. Parse the user's message and extract task details.
 Today's date is {today}.
 
@@ -135,7 +135,7 @@ Return ONLY valid JSON, no extra text."""
                     work_start = parsed_task.get("work_start_hour", 9)
                     work_end = parsed_task.get("work_end_hour", 18)
                     available = self._calculate_available_hours(
-                        datetime.utcnow(), deadline, work_start, work_end
+                        datetime.now(timezone.utc), deadline, work_start, work_end
                     )
                     decomposition = self._fit_subtasks_to_hours(decomposition, available)
 
@@ -177,7 +177,7 @@ Return ONLY valid JSON, no extra text."""
                 checkin_config = await self.checkin_service.create_config(org_id, config_data)
 
                 # Create first check-in 1 hour from now (if within work hours)
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 next_checkin = now + timedelta(hours=1)
                 if work_start <= next_checkin.hour < work_end:
                     first_checkin = await self.checkin_service.create_checkin(

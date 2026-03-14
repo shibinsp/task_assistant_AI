@@ -10,7 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import Base, Enum
 
@@ -136,7 +136,7 @@ class User(Base):
         """Update a specific consent value."""
         current_consent = self.consent
         current_consent[consent_type] = value
-        current_consent[f"{consent_type}_updated_at"] = datetime.utcnow().isoformat()
+        current_consent[f"{consent_type}_updated_at"] = datetime.now(timezone.utc).isoformat()
         self.consent = current_consent
 
     @property

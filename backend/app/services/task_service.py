@@ -4,7 +4,7 @@ Business logic for task management
 """
 
 from typing import Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -750,7 +750,7 @@ class TaskService:
         overdue_query = select(func.count()).select_from(
             base_query.where(
                 and_(
-                    Task.deadline < datetime.utcnow(),
+                    Task.deadline < datetime.now(timezone.utc),
                     Task.status.notin_([TaskStatus.DONE, TaskStatus.ARCHIVED])
                 )
             ).subquery()

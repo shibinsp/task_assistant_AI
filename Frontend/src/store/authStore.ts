@@ -43,14 +43,17 @@ export const useAuthStore = create<AuthState>()(
           const { data, error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
 
+          // Store tokens first so the API client interceptor can attach them to getMe()
+          const accessToken = data.session?.access_token ?? null;
+          const refreshToken = data.session?.refresh_token ?? null;
+          set({ accessToken, refreshToken });
+
           // Fetch full user profile with RBAC data from backend
           const meResponse = await authService.getMe();
           const frontendUser = mapCurrentUserToFrontend(meResponse);
 
           set({
             user: frontendUser,
-            accessToken: data.session?.access_token ?? null,
-            refreshToken: data.session?.refresh_token ?? null,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -92,6 +95,11 @@ export const useAuthStore = create<AuthState>()(
           });
           if (error) throw error;
 
+          // Store tokens first so the API client interceptor can attach them
+          const accessToken = data.session?.access_token ?? null;
+          const refreshToken = data.session?.refresh_token ?? null;
+          set({ accessToken, refreshToken });
+
           // Create the local user record in backend (org, role, etc.)
           const registerResponse = await authService.register(
             email,
@@ -105,8 +113,6 @@ export const useAuthStore = create<AuthState>()(
 
           set({
             user: frontendUser,
-            accessToken: data.session?.access_token ?? null,
-            refreshToken: data.session?.refresh_token ?? null,
             isAuthenticated: true,
             isLoading: false,
           });

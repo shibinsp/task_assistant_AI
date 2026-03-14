@@ -77,9 +77,19 @@ const apiClient = axios.create({
 
 // ─── Request interceptor: inject token + CSRF ────────────────────────
 
-apiClient.interceptors.request.use((config) => {
-  // Attach JWT access token
-  const { accessToken } = getTokens();
+apiClient.interceptors.request.use(async (config) => {
+  // Attach JWT access token (prefer zustand store, fallback to Supabase session)
+  let { accessToken } = getTokens();
+  if (!accessToken) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        accessToken = session.access_token;
+      }
+    } catch {
+      // Supabase client may not be initialized yet
+    }
+  }
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }

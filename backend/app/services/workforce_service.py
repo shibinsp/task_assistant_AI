@@ -4,7 +4,7 @@ Executive-level decision intelligence and analytics
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 import random
@@ -37,7 +37,7 @@ class WorkforceService:
             select(Task).where(
                 Task.assigned_to == user_id,
                 Task.org_id == org_id,
-                Task.completed_at >= datetime.utcnow() - timedelta(days=90)
+                Task.completed_at >= datetime.now(timezone.utc) - timedelta(days=90)
             )
         )
         tasks = result.scalars().all()
@@ -245,7 +245,7 @@ class WorkforceService:
             select(Task).where(
                 Task.org_id == org_id,
                 Task.assigned_to.in_(team_ids),
-                Task.completed_at >= datetime.utcnow() - timedelta(days=90)
+                Task.completed_at >= datetime.now(timezone.utc) - timedelta(days=90)
             )
         )
         team_tasks = result.scalars().all()
@@ -521,7 +521,7 @@ class WorkforceService:
                     factors.append("Low engagement signals")
 
                 # Calculate tenure
-                tenure_months = (datetime.utcnow() - user.created_at).days // 30
+                tenure_months = (datetime.now(timezone.utc) - user.created_at).days // 30
 
                 risk_level = (
                     "critical" if score.attrition_risk_score >= 0.7

@@ -8,7 +8,7 @@ routes events, handles agent chaining, and provides execution context.
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Type, TYPE_CHECKING
 from uuid import uuid4
 
@@ -513,7 +513,7 @@ class AgentOrchestrator:
             record.error = str(e)
 
         finally:
-            record.completed_at = datetime.utcnow()
+            record.completed_at = datetime.now(timezone.utc)
             record.duration_ms = int(
                 (record.completed_at - record.started_at).total_seconds() * 1000
             )

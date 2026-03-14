@@ -4,7 +4,7 @@ Report generation and export functionality
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import io
@@ -82,7 +82,7 @@ class ReportService:
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat()
             },
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "summary": {
                 "team_size": len(team_members),
                 "total_tasks": total_tasks,
@@ -146,7 +146,7 @@ class ReportService:
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat()
             },
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "summary": {
                 "total_completed": len(completed_tasks),
                 "on_time": len(on_time),
@@ -221,7 +221,7 @@ class ReportService:
                 "start": start_date.isoformat(),
                 "end": end_date.isoformat()
             },
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "summary": {
                 "total_blockers_reported": len(blocked_checkins),
                 "currently_blocked_tasks": len(currently_blocked),
@@ -267,7 +267,7 @@ class ReportService:
         period_days: int = 30
     ) -> Dict[str, Any]:
         """Generate executive summary report."""
-        end_date = datetime.utcnow()
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=period_days)
 
         # Get dashboard metrics
@@ -289,7 +289,7 @@ class ReportService:
             "report_type": "executive_summary",
             "organization_id": org_id,
             "period_days": period_days,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "key_metrics": {
                 "total_employees": employee_count,
                 "active_tasks": dashboard["task_summary"]["total_active"],
@@ -428,6 +428,6 @@ class ReportService:
             "report_type": report_type,
             "schedule": schedule,
             "recipients": recipients,
-            "next_run": (datetime.utcnow() + timedelta(days=1)).isoformat(),
+            "next_run": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
             "message": "Report scheduled successfully"
         }

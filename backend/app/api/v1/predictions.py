@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 from app.database import get_db
@@ -93,7 +93,7 @@ async def get_task_prediction(
 
     if not prediction:
         # Generate new prediction (mock)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         base_days = task.estimated_hours / 8 if task.estimated_hours else 5
 
         prediction = Prediction(
@@ -142,7 +142,7 @@ async def get_team_velocity(
 
     # Mock velocity data
     snapshots = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for i in range(5):
         week_start = now - timedelta(weeks=5-i)
         snapshots.append({
@@ -225,5 +225,5 @@ async def get_prediction_accuracy(
         "accuracy_p90": 0.92,
         "mean_absolute_error_days": 2.3,
         "model_version": "v1.0",
-        "last_retrained": datetime.utcnow().isoformat()
+        "last_retrained": datetime.now(timezone.utc).isoformat()
     }

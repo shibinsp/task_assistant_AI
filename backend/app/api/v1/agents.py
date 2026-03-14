@@ -4,7 +4,7 @@ Agent API Endpoints
 Manage agents, execute them, and view execution history.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -233,7 +233,7 @@ async def run_agent_pipeline(
     )
 
     # Run pipeline
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
 
     try:
         results = await orchestrator.run_pipeline(
@@ -242,7 +242,7 @@ async def run_agent_pipeline(
             stop_on_error=request.stop_on_error
         )
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         total_duration = int((end_time - start_time).total_seconds() * 1000)
 
         response_results = [

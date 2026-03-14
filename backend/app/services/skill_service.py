@@ -4,7 +4,7 @@ Business logic for employee skill tracking
 """
 
 from typing import Optional, List, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -161,7 +161,7 @@ class SkillService:
             confidence=skill_data.confidence,
             source=skill_data.source,
             notes=skill_data.notes,
-            last_demonstrated=datetime.utcnow()
+            last_demonstrated=datetime.now(timezone.utc)
         )
 
         self.db.add(user_skill)
@@ -291,7 +291,7 @@ class SkillService:
         days: int = 30
     ) -> dict:
         """Calculate skill velocity metrics."""
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
 
         # Get completed tasks
         tasks_result = await self.db.execute(
@@ -614,7 +614,7 @@ class SkillService:
 
                 if user_skill:
                     user_skill.demonstration_count += 1
-                    user_skill.last_demonstrated = datetime.utcnow()
+                    user_skill.last_demonstrated = datetime.now(timezone.utc)
                     demonstrated_skills.append(skill.id)
 
         await self.db.flush()
