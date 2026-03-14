@@ -1,6 +1,6 @@
 # Vercel Python serverless function dependencies
-# (subset of backend/requirements.txt needed at runtime)
 
+# Core Framework
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.6
@@ -9,6 +9,7 @@ python-multipart>=0.0.6
 sqlalchemy>=2.0.25
 asyncpg>=0.29.0
 greenlet>=3.0.3
+pgvector>=0.2.5
 
 # Supabase
 supabase>=2.3.0
@@ -18,14 +19,17 @@ python-jose[cryptography]>=3.3.0
 bcrypt>=4.1.2
 email-validator>=2.1.0
 
-# AI (mock for now, keep lightweight)
-openai>=1.12.0
-anthropic>=0.18.0
-tiktoken>=0.6.0
+# Scheduler
+apscheduler>=3.10.0
 
 # Validation & Config
 pydantic>=2.6.0
 pydantic-settings>=2.1.0
+
+# AI (mock provider — lightweight)
+openai>=1.12.0
+anthropic>=0.18.0
+tiktoken>=0.6.0
 
 # Utilities
 python-dotenv>=1.0.0
