@@ -1,39 +1,38 @@
 """
 Vercel serverless function entry point for FastAPI backend.
+
+Vercel Python runtime detects the `app` variable (ASGI application).
+See: https://vercel.com/docs/functions/runtimes/python
 """
 
 import sys
 import os
 
-# Add backend to Python path
+# Add backend to Python path so 'app.*' imports resolve correctly
 _backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'backend')
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 
-# Vercel provides env vars from dashboard — no .env file needed
+# Vercel provides env vars from dashboard — set development as fallback
+# so production validation doesn't block the import
 os.environ.setdefault("ENVIRONMENT", "development")
 
 try:
-    from app.main import app
-except Exception as exc:
-    # Fallback: lightweight diagnostic app (no external deps)
-    from http.server import BaseHTTPRequestHandler
-    import json
+    from app.main import app  # noqa: F401, E402
+except Exception:
+    # If full app fails, serve a diagnostic FastAPI app
     import traceback
+    _error = traceback.format_exc()
 
-    _tb = traceback.format_exc()
+    from fastapi import FastAPI
+    app = FastAPI(title="TaskPulse API - Error")
 
-    class handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({
-                "error": "Backend import failed",
-                "exception": str(exc),
-                "traceback": _tb,
-                "python": sys.version,
-                "backend_dir": _backend_dir,
-                "backend_exists": os.path.isdir(_backend_dir),
-                "env_keys": sorted([k for k in os.environ if not k.startswith("_")]),
-            }, indent=2).encode())
+    @app.get("/{path:path}")
+    async def error_handler(path: str = ""):
+        return {
+            "error": "Backend failed to start",
+            "traceback": _error,
+            "python": sys.version,
+            "backend_dir_exists": os.path.isdir(_backend_dir),
+            "cwd": os.getcwd(),
+        }
