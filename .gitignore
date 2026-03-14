@@ -13,3 +13,14 @@ venv/
 *.db-wal
 .pytest_cache/
 .vercel
+
+# Playwright
+Frontend/e2e/.auth/
+Frontend/playwright-report/
+Frontend/test-results/
+
+# Worktrees & tooling
+.claude/worktrees/
+
+# Temp files
+*.fuse_hidden*
