@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/TaskPulse-AI-gradient?style=for-the-badge&logo=brain&logoColor=white&labelColor=6366f1&color=8b5cf6" alt="TaskPulse AI" height="40"/>
+  <img src="https://img.shields.io/badge/TaskPulse-AI-gradient?style=for-the-badge&logo=brain&logoColor=white&labelColor=D4A017&color=B8860B" alt="TaskPulse AI" height="40"/>
 </p>
 
 <h1 align="center">TaskPulse AI</h1>
@@ -15,457 +15,444 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#api-docs">API Docs</a> •
-  <a href="#contributing">Contributing</a>
+  <a href="https://github.com/shibinsp/task_assistant_AI/actions/workflows/ci-cd.yml">
+    <img src="https://github.com/shibinsp/task_assistant_AI/actions/workflows/ci-cd.yml/badge.svg?branch=main" alt="CI/CD"/>
+  </a>
+  <a href="https://relaxed-gates.vercel.app">
+    <img src="https://img.shields.io/badge/Vercel-Deployed-000?style=flat-square&logo=vercel" alt="Vercel"/>
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=black" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/FastAPI-Latest-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Vite-7-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite"/>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.11+-3776ab?style=flat-square&logo=python&logoColor=white" alt="Python"/>
-  <img src="https://img.shields.io/badge/FastAPI-0.109-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
-  <img src="https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react&logoColor=black" alt="React"/>
-  <img src="https://img.shields.io/badge/TypeScript-5.3-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/Vite-5.1-646cff?style=flat-square&logo=vite&logoColor=white" alt="Vite"/>
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ed?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
+  <a href="#live-demo">Live Demo</a> &bull;
+  <a href="#features">Features</a> &bull;
+  <a href="#tech-stack">Tech Stack</a> &bull;
+  <a href="#getting-started">Getting Started</a> &bull;
+  <a href="#api-endpoints">API Docs</a> &bull;
+  <a href="#contributing">Contributing</a>
 </p>
 
 ---
 
-## The Problem
+## Live Demo
 
-Traditional task management tools are **passive observers**. They track what's happening but don't actively help employees complete their work. When someone gets stuck:
+**Production**: [https://relaxed-gates.vercel.app](https://relaxed-gates.vercel.app)
 
-- ❌ They waste hours before asking for help
-- ❌ Managers only find out during weekly standups
-- ❌ Projects slip without early warning
-- ❌ Valuable knowledge stays siloed in individuals
-
-## The Solution
-
-**TaskPulse AI** is an **active task completion engine** that:
-
-- ✅ Proactively checks in with employees every 3 hours
-- ✅ Uses AI to unblock stuck workers instantly
-- ✅ Predicts delivery risks before they become problems
-- ✅ Builds organizational knowledge that helps everyone
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@taskpulse.demo` | `TaskPulse2024` | Super Admin |
+| `orgadmin@taskpulse.demo` | `TaskPulse2024` | Org Admin |
+| `manager@taskpulse.demo` | `TaskPulse2024` | Manager |
+| `lead@taskpulse.demo` | `TaskPulse2024` | Team Lead |
+| `dev@taskpulse.demo` | `TaskPulse2024` | Employee |
+| `viewer@taskpulse.demo` | `TaskPulse2024` | Viewer |
 
 ---
 
 ## Features
 
-### 🔄 Smart Check-In Engine
+### Task Management
+- **Full CRUD** with priority, status, assignments, due dates, and subtasks
+- **Kanban Board** / **List** / **Grid** views with drag-and-drop
+- **AI Task Decomposition** - break complex tasks into subtasks automatically
+- **Bulk Operations** - update multiple tasks at once
+- **Task Dependencies** - link related tasks together
+- **Comments & History** - full audit trail on every task
 
-Intelligent, proactive engagement that catches blockers early.
+### Smart Check-In Engine
+- **3-Hour Loops** - configurable proactive check-in intervals
+- **Friction Detection** - AI identifies when progress stalls
+- **Auto-Escalation** - missed check-ins notify managers
+- **Manager Feed** - centralized view of team responses
 
-| Feature | Description |
-|---------|-------------|
-| **3-Hour Loops** | Configurable check-in intervals per team or task type |
-| **Friction Detection** | AI identifies when progress is slower than expected |
-| **Auto-Escalation** | Missed check-ins trigger manager notifications |
-| **Silent Mode** | No interruptions when everything's on track |
+### AI Command Center
+- **AI Unblock Engine** - RAG-powered help with blockers
+- **Knowledge Base** - upload and search internal docs
+- **Conversational Task Creation** - create tasks via natural language
+- **Multi-Provider** - OpenAI, Anthropic, Mistral, Kimi, Ollama support
 
-### 🧠 AI Unblock Engine
+### Prediction & Analytics
+- **Delivery Forecasts** - P25/P50/P90 completion estimates
+- **Velocity Trends** - team performance over time
+- **Productivity Heatmap** - hourly productivity patterns
+- **Dashboard Metrics** - real-time task statistics
 
-RAG-powered assistance with **zero hallucination** guarantee.
+### Skill Graph
+- **Skill Tracking** - catalog and rate team skills
+- **Gap Analysis** - identify missing skills for roles
+- **Learning Paths** - personalized development plans
+- **Team Composition** - visualize collective strengths
 
-```
-Employee: "I'm stuck on the OAuth integration with our legacy system"
+### Workforce Intelligence
+- **Performance Scoring** - multi-factor employee metrics
+- **Manager Rankings** - leadership effectiveness comparison
+- **Org Health Index** - company-wide health dashboard
+- **Attrition Risk** - identify at-risk employees
+- **Restructuring Simulator** - model team changes before committing
 
-TaskPulse AI: Based on your codebase and past solutions:
-├── Similar issue solved by @john (PR #234) - 3 weeks ago
-├── Internal wiki: "Legacy OAuth Migration Guide"
-├── Suggested teammate: @sarah (95% skill match)
-└── Estimated unblock time: 45 minutes with pairing
-```
+### Automation Detection
+- **Pattern Recognition** - AI finds repetitive workflows
+- **Agent Creation** - one-click automation for common tasks
+- **Shadow Mode** - test automations safely before activation
+- **ROI Dashboard** - track hours saved and cost reduction
 
-- **Knowledge Base Integration** - Upload docs, wikis, and past solutions
-- **Skill-Adaptive Responses** - Adjusts explanation complexity to user level
-- **Smart Teammate Matching** - Suggests the right person to help
-
-### 📊 Prediction Engine
-
-Machine learning-powered forecasting that sees problems coming.
-
-| Prediction Type | What It Does |
-|----------------|--------------|
-| **Delivery Forecast** | P25, P50, P90 completion estimates |
-| **Risk Cascade** | Shows how one delay affects downstream tasks |
-| **Velocity Trends** | Team performance over time |
-| **Hiring Forecast** | Predicts when you'll need more capacity |
-
-### 🎯 Skill Graph
-
-Automatic skill inference that grows with your organization.
-
-```
-┌─────────────────────────────────────────────────┐
-│  Developer: Sarah Chen                          │
-├─────────────────────────────────────────────────┤
-│  ████████████████████░░░░  React (85%)          │
-│  ██████████████░░░░░░░░░░  TypeScript (70%)     │
-│  ████████████████████████  Python (95%)         │
-│  ████████░░░░░░░░░░░░░░░░  DevOps (40%)         │
-├─────────────────────────────────────────────────┤
-│  📈 Learning Velocity: +15% this quarter        │
-│  🎯 Recommended: "Advanced Kubernetes" course   │
-└─────────────────────────────────────────────────┘
-```
-
-### 👥 Workforce Intelligence
-
-Data-driven insights for better organizational decisions.
-
-- **Performance Scoring** - Objective, multi-factor employee metrics
-- **Manager Effectiveness** - How well leaders enable their teams
-- **Org Health Index** - Company-wide productivity dashboard
-- **Restructuring Simulator** - Model team changes before making them
-
-### 🤖 Automation Detection
-
-Find and eliminate repetitive work automatically.
-
-1. **Pattern Recognition** - AI identifies repetitive task sequences
-2. **Agent Creation** - One-click automation for common workflows
-3. **Shadow Mode** - Test automations safely before deployment
-4. **ROI Dashboard** - Track hours saved and cost reduction
+### Integrations
+- **OAuth Flows** - connect Slack, Jira, and other tools
+- **Webhooks** - real-time event notifications
+- **API Keys** - programmatic access management
 
 ---
 
-## Quick Start
+## Tech Stack
 
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- npm or yarn
-
-### Local Development
-
-**1. Clone the repository**
-
-```bash
-git clone https://github.com/shibinsp/taskpulse-ai.git
-cd taskpulse-ai
-```
-
-**2. Backend Setup**
-
-```bash
-cd backend
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Or install core dependencies
-pip install fastapi uvicorn sqlalchemy aiosqlite pydantic-settings python-jose[cryptography] passlib bcrypt python-multipart greenlet
-
-# Configure environment (already set up)
-# Edit backend/.env if needed
-
-# Start the server
-python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**3. Frontend Setup**
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-**4. Access the Application**
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-
-### Quick Start Script
-
-```bash
-# From project root
-./start.sh
-```
-
-This will start both backend and frontend services automatically.
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 19, TypeScript 5.9, Vite 7, Tailwind CSS, Radix UI/shadcn |
+| **State** | Zustand 5, TanStack React Query |
+| **Backend** | FastAPI, Python 3.11+, SQLAlchemy 2.0 (async) |
+| **Database** | SQLite (dev) / PostgreSQL + Supabase (prod) |
+| **Auth** | JWT + bcrypt + Google OAuth 2.0 + Supabase Auth |
+| **AI** | OpenAI, Anthropic, Mistral, Kimi, Ollama, Mock |
+| **Testing** | Playwright (E2E), pytest (unit) |
+| **CI/CD** | GitHub Actions + Vercel |
+| **Infra** | Docker, Docker Compose |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Frontend (React)                         │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────────┐ │
-│  │Dashboard │ │  Tasks   │ │ Check-ins│ │   Skills & Reports   │ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────────┘ │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │ REST API (Vite Proxy)
-┌─────────────────────────────▼───────────────────────────────────┐
-│                        Backend (FastAPI)                         │
-│  ┌──────────────────────────────────────────────────────────────┐│
-│  │                        API Layer (v1)                        ││
-│  │  Auth │ Tasks │ Check-ins │ Skills │ Predictions │ Reports  ││
-│  └──────────────────────────────────────────────────────────────┘│
-│  ┌──────────────────────────────────────────────────────────────┐│
-│  │                      Service Layer                           ││
-│  │  AI Service │ Prediction │ Skill Graph │ Automation │ Notif  ││
-│  └──────────────────────────────────────────────────────────────┘│
-│  ┌──────────────────────────────────────────────────────────────┐│
-│  │                       Data Layer                             ││
-│  │            SQLAlchemy ORM │ Async SQLite/PostgreSQL          ││
-│  └──────────────────────────────────────────────────────────────┘│
-└──────────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-   ┌─────────┐          ┌──────────┐         ┌──────────┐
-   │   AI    │          │ Database │         │  Cache   │
-   │ Provider│          │  SQLite  │         │  (Future)│
-   └─────────┘          └──────────┘         └──────────┘
+                            ┌──────────────────────────────┐
+                            │     Vercel (Production)      │
+                            │  relaxed-gates.vercel.app    │
+                            └──────────────┬───────────────┘
+                                           │
+               ┌───────────────────────────┼───────────────────────────┐
+               │                           │                           │
+    ┌──────────▼──────────┐    ┌──────────▼──────────┐    ┌──────────▼──────────┐
+    │   Frontend (Vite)   │    │   API (Serverless)   │    │   Supabase Auth     │
+    │   React 19 + TS     │───▶│   FastAPI + Python   │    │   OAuth + JWT       │
+    │   Port: 5173        │    │   Port: 8000         │    │                     │
+    └─────────────────────┘    └──────────┬───────────┘    └─────────────────────┘
+                                          │
+                    ┌─────────────────────┼─────────────────────┐
+                    │                     │                     │
+             ┌──────▼──────┐      ┌──────▼──────┐      ┌──────▼──────┐
+             │  PostgreSQL │      │ AI Providers │      │  Supabase   │
+             │  (Supabase) │      │ OpenAI/etc   │      │  Storage    │
+             └─────────────┘      └─────────────┘      └─────────────┘
 ```
-
-### Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 18, TypeScript, Vite, Zustand, Axios |
-| **Backend** | FastAPI, Python 3.11+, SQLAlchemy, Pydantic |
-| **Database** | SQLite (dev) / PostgreSQL (prod) |
-| **AI** | OpenAI / Anthropic Claude / Mock (configurable) |
-| **Deployment** | Docker, Docker Compose (coming soon) |
 
 ---
 
-## API Documentation
+## Getting Started
 
-Interactive API documentation is available at:
+### Prerequisites
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- Python 3.11+
+- Node.js 18+
+- npm
 
-### Key Endpoints
+### 1. Clone
 
-<details>
-<summary><strong>Authentication</strong></summary>
-
-```http
-POST /api/v1/auth/register   # Create new account
-POST /api/v1/auth/login      # Get access tokens
-POST /api/v1/auth/refresh    # Refresh access token
-GET  /api/v1/auth/me         # Get current user
+```bash
+git clone https://github.com/shibinsp/task_assistant_AI.git
+cd task_assistant_AI
 ```
-</details>
 
-<details>
-<summary><strong>Tasks</strong></summary>
+### 2. Backend Setup
 
-```http
-GET    /api/v1/tasks              # List all tasks
-POST   /api/v1/tasks              # Create new task
-GET    /api/v1/tasks/{id}         # Get task details
-PUT    /api/v1/tasks/{id}         # Update task
-DELETE /api/v1/tasks/{id}         # Delete task
-POST   /api/v1/tasks/{id}/decompose  # AI task breakdown
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
+
+# Start the server
+python run.py
+# Or: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-</details>
 
-<details>
-<summary><strong>Check-ins</strong></summary>
+### 3. Frontend Setup
 
-```http
-GET  /api/v1/checkins              # List check-ins
-POST /api/v1/checkins              # Create check-in
-GET  /api/v1/checkins/{id}         # Get check-in details
+```bash
+cd Frontend
+npm install
+npm run dev
 ```
-</details>
 
-<details>
-<summary><strong>AI & Predictions</strong></summary>
+### 4. Seed Demo Data
 
-```http
-POST /api/v1/ai/unblock                    # Get AI help for blockers
-GET  /api/v1/predictions/tasks/{id}        # Delivery forecast
-GET  /api/v1/predictions/team/{id}/velocity # Velocity trends
+```bash
+cd backend
+python scripts/seed_data.py
 ```
-</details>
 
-<details>
-<summary><strong>Workforce & Reports</strong></summary>
+### 5. Access
 
-```http
-GET  /api/v1/workforce/scores       # Employee performance
-GET  /api/v1/workforce/org-health   # Organization metrics
-POST /api/v1/workforce/simulate     # Restructuring simulation
-GET  /api/v1/reports/dashboard      # Dashboard data
-POST /api/v1/reports/generate       # Generate report
-```
-</details>
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+| API Docs (ReDoc) | http://localhost:8000/redoc |
+
+**Default login**: `admin@acme.com` / `demo123`
 
 ---
 
-## Role-Based Access Control
+## E2E Testing
 
-| Role | Capabilities |
-|------|--------------|
-| **Super Admin** | Full system access, multi-org management |
-| **Org Admin** | Organization settings, all users |
-| **Manager** | Team oversight, reports, escalations |
-| **Team Lead** | Team task management, check-ins |
-| **Employee** | Personal tasks, respond to check-ins |
-| **Viewer** | Read-only dashboard access |
+13 Playwright test suites covering 113 test cases.
+
+```bash
+cd Frontend
+
+# Run against local dev server
+npm run test:e2e
+
+# Run against deployed app
+npm run test:e2e:deployed
+
+# Run with visible browser
+npm run test:e2e:headed
+
+# Interactive UI mode
+npm run test:e2e:ui
+
+# View HTML report
+npx playwright show-report
+```
+
+### Latest Results (Deployed App)
+
+| Suite | Tests | Status |
+|-------|-------|--------|
+| Landing Page | 7 | Pass |
+| Authentication | 8 | Pass |
+| Dashboard | 9 | 8 Pass / 1 Fail |
+| Task Creation | 6 | Pass |
+| AI Task Creator | 6 | Pass |
+| Task Management | 5 | Pass |
+| Navigation | 7 | Pass |
+| Settings | 3 | Pass |
+| Task Detail | 11 | Pass |
+| Filters & Sort | 12 | Pass |
+| Check-Ins | 13 | Pass |
+| AI Command | 9 | Pass |
+| Settings Logic | 15 | Pass |
+| **Total** | **113** | **110 Pass / 1 Fail / 2 Skip** |
 
 ---
 
-## Configuration
+## CI/CD Pipeline
 
-### Environment Variables
+Every push to `main` triggers automatic deployment:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ENVIRONMENT` | Environment mode | `development` |
-| `DATABASE_URL` | Database connection | `sqlite+aiosqlite:///./taskpulse.db` |
-| `SECRET_KEY` | JWT signing key | (auto-generated for dev) |
-| `AI_PROVIDER` | AI backend | `mock` |
-| `OPENAI_API_KEY` | OpenAI API key | - |
-| `ANTHROPIC_API_KEY` | Anthropic API key | - |
-
-### AI Provider Setup
-
-**Mock (Default)** - No API keys needed, great for development.
-
-**OpenAI:**
-```env
-AI_PROVIDER=openai
-OPENAI_API_KEY=sk-your-key
+```
+Push to main
+    │
+    ├── Detect Changes (frontend/backend)
+    │
+    ├── Frontend: Lint & Build (ESLint + tsc + Vite)
+    │
+    ├── Backend: Unit Tests (pytest)
+    │
+    └── Deploy to Vercel Production
 ```
 
-**Anthropic Claude:**
-```env
-AI_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-your-key
-```
+- **Preview deploys** on every PR with auto-comment
+- **Manual trigger** via GitHub Actions UI (`workflow_dispatch`)
+- **Concurrency control** — new pushes cancel in-progress runs
 
 ---
 
 ## Project Structure
 
 ```
-taskpulse-ai/
+task_assistant_AI/
+├── Frontend/
+│   ├── src/
+│   │   ├── pages/              # 19 route pages
+│   │   ├── components/         # UI components (shadcn + custom)
+│   │   ├── services/           # 17 API service modules
+│   │   ├── store/              # Zustand stores (auth, theme, ui)
+│   │   ├── types/              # TypeScript types + mappers
+│   │   ├── hooks/              # React Query hooks
+│   │   └── lib/                # API client, Supabase, utils
+│   ├── e2e/                    # 13 Playwright spec files
+│   ├── playwright.config.ts
+│   └── package.json
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/          # REST API endpoints
-│   │   ├── core/            # Security, middleware
-│   │   ├── models/          # Database models
-│   │   ├── schemas/         # Pydantic schemas
-│   │   ├── services/        # Business logic
-│   │   ├── agents/          # AI agents
-│   │   └── utils/           # Helpers
-│   ├── tests/               # Test suite
-│   ├── scripts/             # Seed data, utilities
-│   ├── .env                 # Environment config
+│   │   ├── api/v1/             # 18 route modules
+│   │   ├── core/               # Security, middleware, permissions
+│   │   ├── models/             # 12 SQLAlchemy models
+│   │   ├── schemas/            # Pydantic request/response schemas
+│   │   ├── services/           # 17 business logic services
+│   │   └── agents/             # 5 AI agents
+│   ├── tests/                  # pytest test suite
+│   ├── scripts/                # Seed data scripts
 │   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── pages/           # Route pages
-│   │   ├── services/        # API clients
-│   │   ├── store/           # State management
-│   │   ├── types/           # TypeScript types
-│   │   └── lib/             # Utilities
-│   ├── package.json
-│   └── vite.config.ts
-├── start.sh                 # Quick start script
-├── INTEGRATION.md           # Integration guide
-└── README.md
+├── api/
+│   └── index.py                # Vercel serverless entry point
+├── .github/workflows/
+│   └── ci-cd.yml               # CI/CD pipeline
+├── docs/
+│   ├── reports/                # Test & audit reports
+│   └── screenshots/            # UI screenshots
+├── vercel.json                 # Vercel deploy config
+├── docker-compose.yml          # Docker services
+└── CLAUDE.md                   # Development rules
 ```
 
 ---
 
-## Development
+## API Endpoints
 
-### Running Tests
+<details>
+<summary><strong>Authentication</strong></summary>
 
-```bash
-# Backend tests
-cd backend
-pytest
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/register` | Create new account |
+| `POST` | `/api/v1/auth/login` | Get access tokens |
+| `GET` | `/api/v1/auth/me` | Get current user |
+| `POST` | `/api/v1/auth/google` | Google OAuth login |
+| `POST` | `/api/v1/auth/refresh` | Refresh access token |
+| `POST` | `/api/v1/auth/logout` | Logout current session |
+| `POST` | `/api/v1/auth/change-password` | Change password |
+| `GET` | `/api/v1/auth/sessions` | List active sessions |
 
-# With coverage
-pytest --cov=app --cov-report=html
-```
+</details>
 
-### Code Quality
+<details>
+<summary><strong>Tasks</strong></summary>
 
-```bash
-# Backend linting
-cd backend
-flake8 app/
-black app/
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/tasks` | List tasks (filterable) |
+| `POST` | `/api/v1/tasks` | Create task |
+| `GET` | `/api/v1/tasks/{id}` | Get task details |
+| `PUT` | `/api/v1/tasks/{id}` | Update task |
+| `DELETE` | `/api/v1/tasks/{id}` | Delete task |
+| `POST` | `/api/v1/tasks/{id}/decompose` | AI decomposition |
+| `POST` | `/api/v1/tasks/{id}/subtasks` | Create subtask |
+| `POST` | `/api/v1/tasks/{id}/comments` | Add comment |
+| `GET` | `/api/v1/tasks/{id}/history` | Task change history |
+| `POST` | `/api/v1/tasks/bulk/update` | Bulk update |
 
-# Frontend linting
-cd frontend
-npm run lint
-```
+</details>
+
+<details>
+<summary><strong>Check-Ins</strong></summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/checkins` | List check-ins |
+| `GET` | `/api/v1/checkins/pending` | Pending check-ins |
+| `POST` | `/api/v1/checkins/{id}/respond` | Submit response |
+| `POST` | `/api/v1/checkins/{id}/skip` | Skip check-in |
+| `POST` | `/api/v1/checkins/{id}/escalate` | Escalate blocker |
+| `GET` | `/api/v1/checkins/config` | Get config |
+| `GET` | `/api/v1/checkins/statistics` | Check-in stats |
+
+</details>
+
+<details>
+<summary><strong>AI & Chat</strong></summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/ai/unblock` | AI unblock assistance |
+| `GET` | `/api/v1/ai/documents` | Knowledge base docs |
+| `POST` | `/api/v1/chat` | Send chat message |
+| `GET` | `/api/v1/chat/conversations` | List conversations |
+
+</details>
+
+<details>
+<summary><strong>Skills, Predictions, Workforce</strong></summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/skills` | Skill catalog |
+| `GET` | `/api/v1/skills/{userId}/graph` | Skill graph |
+| `GET` | `/api/v1/skills/{userId}/gaps` | Skill gaps |
+| `GET` | `/api/v1/predictions/tasks/{id}` | Delivery forecast |
+| `GET` | `/api/v1/predictions/team/{id}/velocity` | Velocity forecast |
+| `GET` | `/api/v1/workforce/scores` | Performance scores |
+| `GET` | `/api/v1/workforce/org-health` | Org health index |
+| `POST` | `/api/v1/workforce/simulations` | Restructuring sim |
+
+</details>
+
+<details>
+<summary><strong>Automation & Integrations</strong></summary>
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/automation/patterns` | Detected patterns |
+| `POST` | `/api/v1/automation/agents` | Create agent |
+| `GET` | `/api/v1/automation/roi` | ROI dashboard |
+| `GET` | `/api/v1/integrations` | List integrations |
+| `POST` | `/api/v1/integrations` | Create integration |
+| `POST` | `/api/v1/integrations/{id}/test` | Test connection |
+| `GET` | `/api/v1/webhooks` | List webhooks |
+
+</details>
 
 ---
 
-## Roadmap
+## Security
 
-- [x] **Core Task Management** - CRUD operations, status tracking
-- [x] **Authentication & Authorization** - JWT-based auth, RBAC
-- [x] **Check-in System** - Proactive engagement loops
-- [x] **AI Unblock Engine** - RAG-powered assistance
-- [x] **Skill Graph** - Automatic skill inference
-- [x] **Prediction Engine** - ML-powered forecasting
-- [ ] **Slack/Teams Integration** - Check-ins where your team works
-- [ ] **Mobile App** - iOS and Android native apps
-- [ ] **Advanced Analytics** - Custom report builder
-- [ ] **SSO/SAML** - Enterprise authentication
-- [ ] **Multi-language Support** - i18n for global teams
-- [ ] **API Webhooks** - External integrations
+- **JWT Authentication** with refresh token rotation
+- **bcrypt Password Hashing** with complexity requirements (8+ chars, uppercase, etc.)
+- **Role-Based Access Control** (6 roles: Super Admin to Viewer)
+- **Permission Guards** on all API endpoints
+- **Secret Redaction** in API responses (SMTP passwords, tokens)
+- **CORS Protection** with configurable origins
+- **Rate Limiting** on authentication endpoints
+- **Input Validation** via Pydantic schemas
+- **SQL Injection Prevention** via SQLAlchemy ORM
+- **XSS Protection** via React's built-in escaping
+
+---
+
+## Role-Based Access Control
+
+| Role | Tasks | Check-Ins | Team | Reports | Admin |
+|------|-------|-----------|------|---------|-------|
+| **Super Admin** | Full | Full | Full | Full | Full |
+| **Org Admin** | Full | Full | Full | Full | Org Settings |
+| **Manager** | Team | Team | View | Full | - |
+| **Team Lead** | Team | Team | View | Team | - |
+| **Employee** | Own | Own | - | Own | - |
+| **Viewer** | Read | Read | - | Read | - |
 
 ---
 
 ## Contributing
 
-We welcome contributions! Here's how to get started:
+All changes follow the **Issue -> Branch -> PR** workflow:
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
----
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## Support
-
-- **Documentation**: See [INTEGRATION.md](INTEGRATION.md) for detailed setup
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/shibinsp/taskpulse-ai/issues)
-- **Discussions**: Join our [GitHub Discussions](https://github.com/shibinsp/taskpulse-ai/discussions)
+1. **Create a GitHub Issue** describing the change
+2. **Create a branch**: `fix/issue-42-description` or `feat/issue-43-feature`
+3. **Implement** the fix/feature
+4. **Create a PR** with `Fixes #<issue-number>` in the body
+5. **CI passes** -> **Merge** to `main` -> **Auto-deploy** to Vercel
 
 ---
 
 <p align="center">
-  <strong>Built with passion for productive teams everywhere.</strong>
-  <br />
-  <br />
-  <a href="https://github.com/shibinsp/taskpulse-ai/stargazers">
-    <img src="https://img.shields.io/github/stars/shibinsp/taskpulse-ai?style=social" alt="Stars"/>
-  </a>
-  <a href="https://github.com/shibinsp/taskpulse-ai/network/members">
-    <img src="https://img.shields.io/github/forks/shibinsp/taskpulse-ai?style=social" alt="Forks"/>
-  </a>
+  <strong>Built by <a href="https://github.com/shibinsp">shibinsp</a> &bull; Powered by Beeax</strong>
 </p>
