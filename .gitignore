@@ -12,3 +12,4 @@ venv/
 *.db-shm
 *.db-wal
 .pytest_cache/
+.vercel
