@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.models.agent import AgentType, AgentStatusDB, ExecutionStatus
+from app.schemas._types import StrUUID
 
 
 # ==================== Agent Schemas ====================
@@ -21,8 +22,8 @@ class AgentConfigUpdate(BaseModel):
 
 class AgentResponse(BaseModel):
     """Schema for agent in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
 
     # Identity
     name: str
@@ -98,18 +99,18 @@ class ExecuteAgentRequest(BaseModel):
 
 class AgentExecutionResponse(BaseModel):
     """Schema for agent execution in API responses."""
-    id: str
-    agent_id: str
-    org_id: str
+    id: StrUUID
+    agent_id: StrUUID
+    org_id: StrUUID
 
     # Trigger
     event_type: str
-    event_id: Optional[str] = None
+    event_id: Optional[StrUUID] = None
     trigger_source: Optional[str] = None
 
     # Context
-    user_id: Optional[str] = None
-    task_id: Optional[str] = None
+    user_id: Optional[StrUUID] = None
+    task_id: Optional[StrUUID] = None
     context_data: Dict[str, Any] = Field(default_factory=dict)
 
     # Status
@@ -129,7 +130,7 @@ class AgentExecutionResponse(BaseModel):
     api_calls: int = 0
 
     # Chain info
-    parent_execution_id: Optional[str] = None
+    parent_execution_id: Optional[StrUUID] = None
     chain_depth: int = 0
 
     created_at: datetime
@@ -147,7 +148,7 @@ class ExecutionListResponse(BaseModel):
 
 class ExecutionSummaryResponse(BaseModel):
     """Summary of agent executions."""
-    agent_id: str
+    agent_id: StrUUID
     agent_name: str
 
     # Counts
@@ -174,7 +175,7 @@ class ExecutionSummaryResponse(BaseModel):
 
 class ConversationMessage(BaseModel):
     """Chat message in a conversation."""
-    id: str
+    id: StrUUID
     role: str = Field(..., description="Role: user, assistant, system")
     content: str
     agent_name: Optional[str] = None
@@ -184,9 +185,9 @@ class ConversationMessage(BaseModel):
 
 class AgentConversationResponse(BaseModel):
     """Schema for agent conversation in API responses."""
-    id: str
-    org_id: str
-    user_id: str
+    id: StrUUID
+    org_id: StrUUID
+    user_id: StrUUID
 
     # Metadata
     title: Optional[str] = None
@@ -224,8 +225,8 @@ class SendMessageRequest(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     """Response from chat agent."""
-    conversation_id: str
-    message_id: str
+    conversation_id: StrUUID
+    message_id: StrUUID
 
     # Response
     response: str
@@ -258,7 +259,7 @@ class OrchestrationRequest(BaseModel):
 class OrchestrationStepResult(BaseModel):
     """Result of a single orchestration step."""
     agent_name: str
-    execution_id: str
+    execution_id: StrUUID
     success: bool
     output: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
@@ -267,7 +268,7 @@ class OrchestrationStepResult(BaseModel):
 
 class OrchestrationResponse(BaseModel):
     """Response from orchestration pipeline."""
-    pipeline_id: str
+    pipeline_id: StrUUID
 
     # Results
     success: bool
@@ -308,9 +309,9 @@ class AgentScheduleUpdate(BaseModel):
 
 class AgentScheduleResponse(BaseModel):
     """Schema for agent schedule in API responses."""
-    id: str
-    agent_id: str
-    org_id: str
+    id: StrUUID
+    agent_id: StrUUID
+    org_id: StrUUID
 
     # Schedule
     name: str

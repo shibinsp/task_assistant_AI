@@ -8,25 +8,26 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.models.audit import ActorType, AuditAction
+from app.schemas._types import StrUUID
 
 
 # ==================== Audit Log Schemas ====================
 
 class AuditLogResponse(BaseModel):
     """Schema for audit log in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
 
     # Actor
     actor_type: ActorType
-    actor_id: str
+    actor_id: StrUUID
     actor_email: Optional[str] = None
     actor_ip: Optional[str] = None
 
     # Action
     action: AuditAction
     resource_type: str
-    resource_id: Optional[str] = None
+    resource_id: Optional[StrUUID] = None
 
     # Details
     details: Dict[str, Any] = Field(default_factory=dict)
@@ -87,9 +88,9 @@ class GDPRRequestCreate(BaseModel):
 
 class GDPRRequestResponse(BaseModel):
     """Schema for GDPR request in API responses."""
-    id: str
-    org_id: str
-    user_id: str
+    id: StrUUID
+    org_id: StrUUID
+    user_id: StrUUID
 
     # Request details
     request_type: str
@@ -99,7 +100,7 @@ class GDPRRequestResponse(BaseModel):
     status: str = Field(..., description="Status: pending, processing, completed, rejected")
 
     # Processing
-    processed_by: Optional[str] = None
+    processed_by: Optional[StrUUID] = None
     processed_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None
 
@@ -140,9 +141,9 @@ class APIKeyCreate(BaseModel):
 
 class APIKeyResponse(BaseModel):
     """Schema for API key in API responses."""
-    id: str
-    org_id: str
-    user_id: str
+    id: StrUUID
+    org_id: StrUUID
+    user_id: StrUUID
 
     # Key info (key itself only shown on creation)
     name: str
@@ -193,8 +194,8 @@ class ServiceHealth(BaseModel):
 
 class SystemHealthResponse(BaseModel):
     """Schema for system health in API responses."""
-    id: str
-    org_id: Optional[str] = None
+    id: StrUUID
+    org_id: Optional[StrUUID] = None
 
     # Overall status
     status: str = Field(..., description="Status: healthy, degraded, unhealthy")
@@ -285,8 +286,8 @@ class ComplianceReportRequest(BaseModel):
 
 class ComplianceReportResponse(BaseModel):
     """Response for compliance report."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
 
     # Report info
     report_type: str

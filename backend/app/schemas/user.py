@@ -8,6 +8,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
 from app.models.user import UserRole, SkillLevel
+from app.schemas._types import StrUUID
 
 
 # ==================== Base Schemas ====================
@@ -178,8 +179,8 @@ class ConsentResponse(BaseModel):
 
 class UserResponse(UserBase):
     """Schema for user in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     role: UserRole
     skill_level: SkillLevel
     timezone: str
@@ -198,8 +199,8 @@ class UserResponse(UserBase):
 class UserDetailResponse(UserResponse):
     """Detailed user response with additional info."""
     phone: Optional[str] = None
-    team_id: Optional[str] = None
-    manager_id: Optional[str] = None
+    team_id: Optional[StrUUID] = None
+    manager_id: Optional[StrUUID] = None
     last_login: Optional[datetime] = None
     consent: ConsentResponse = Field(default_factory=ConsentResponse)
     updated_at: datetime

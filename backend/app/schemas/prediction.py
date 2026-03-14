@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.models.prediction import PredictionType
+from app.schemas._types import StrUUID
 
 
 # ==================== Prediction Request Schemas ====================
@@ -42,7 +43,7 @@ class PredictionEstimate(BaseModel):
 
 class TaskPredictionResponse(BaseModel):
     """Response for task completion prediction."""
-    task_id: str
+    task_id: StrUUID
     task_title: str
     current_status: str
 
@@ -64,10 +65,10 @@ class TaskPredictionResponse(BaseModel):
 
 class PredictionResponse(BaseModel):
     """Schema for prediction in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     prediction_type: PredictionType
-    target_id: str
+    target_id: StrUUID
     target_type: str
 
     # Estimates
@@ -110,10 +111,10 @@ class VelocityDataPoint(BaseModel):
 
 class VelocitySnapshotResponse(BaseModel):
     """Schema for velocity snapshot in API responses."""
-    id: str
-    org_id: str
-    team_id: Optional[str] = None
-    user_id: Optional[str] = None
+    id: StrUUID
+    org_id: StrUUID
+    team_id: Optional[StrUUID] = None
+    user_id: Optional[StrUUID] = None
 
     # Metrics
     period_start: date
@@ -133,8 +134,8 @@ class VelocitySnapshotResponse(BaseModel):
 
 class VelocityTrendResponse(BaseModel):
     """Response for velocity trend analysis."""
-    team_id: Optional[str] = None
-    user_id: Optional[str] = None
+    team_id: Optional[StrUUID] = None
+    user_id: Optional[StrUUID] = None
 
     # Time series data
     data_points: List[VelocityDataPoint]
@@ -156,7 +157,7 @@ class VelocityTrendResponse(BaseModel):
 
 class VelocityForecastResponse(BaseModel):
     """Response for velocity forecasting."""
-    team_id: Optional[str] = None
+    team_id: Optional[StrUUID] = None
 
     # Forecast data
     forecast_dates: List[date]

@@ -8,6 +8,7 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.models.notification import NotificationType, NotificationChannel, IntegrationType
+from app.schemas._types import StrUUID
 
 
 # ==================== Notification Schemas ====================
@@ -29,8 +30,8 @@ class NotificationUpdate(BaseModel):
 
 class NotificationResponse(BaseModel):
     """Schema for notification in API responses."""
-    id: str
-    user_id: str
+    id: StrUUID
+    user_id: StrUUID
     type: NotificationType
     title: str
     message: str
@@ -81,8 +82,8 @@ class NotificationPreferenceUpdate(BaseModel):
 
 class NotificationPreferenceResponse(BaseModel):
     """Schema for notification preferences in API responses."""
-    id: str
-    user_id: str
+    id: StrUUID
+    user_id: StrUUID
     channel: NotificationChannel
     enabled: bool
     quiet_hours_start: Optional[str] = None
@@ -126,8 +127,8 @@ class IntegrationUpdate(BaseModel):
 
 class IntegrationResponse(BaseModel):
     """Schema for integration in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     type: IntegrationType
     name: str
     status: str
@@ -184,8 +185,8 @@ class WebhookUpdate(BaseModel):
 
 class WebhookResponse(BaseModel):
     """Schema for webhook in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     name: str
     url: str
     events: List[str]
@@ -221,8 +222,8 @@ class WebhookTestResponse(BaseModel):
 
 class WebhookDeliveryResponse(BaseModel):
     """Schema for webhook delivery in API responses."""
-    id: str
-    webhook_id: str
+    id: StrUUID
+    webhook_id: StrUUID
     event_type: str
     status_code: Optional[int] = None
     success: bool
