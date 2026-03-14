@@ -4,6 +4,7 @@ PostgreSQL (Supabase) database setup with SQLAlchemy async support
 """
 
 import enum as _enum
+import logging
 import ssl
 import uuid
 from typing import AsyncGenerator
@@ -35,6 +36,7 @@ class Enum(_SQLAlchemyEnum):
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 
 # SSL context for Supabase connection pooler (uses self-signed certs)
 _ssl_context = ssl.create_default_context()
