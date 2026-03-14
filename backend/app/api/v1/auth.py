@@ -211,6 +211,7 @@ async def change_password(
     auth_service = AuthService(db)
     await auth_service.change_password(
         user_id=current_user.id,
+        current_password=data.current_password,
         new_password=data.new_password,
     )
 

@@ -4,6 +4,7 @@ Business logic for user authentication via Supabase Auth
 """
 
 import asyncio
+import secrets
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 import logging
@@ -73,17 +74,22 @@ class AuthService:
             )
         except Exception as e:
             logger.error(f"Supabase user creation failed: {e}")
-            raise ValidationException(f"Failed to create auth account: {e}")
+            raise ValidationException("Failed to create auth account")
 
         supabase_auth_id = supabase_response.user.id
 
         # Determine organization
         if user_data.org_id:
-            # Join existing organization
+            # Join existing organization — requires valid invite code
             org = await self._get_organization_by_id(user_data.org_id)
             if not org:
                 raise NotFoundException("Organization", user_data.org_id)
-            role = user_data.role or UserRole.EMPLOYEE
+            if not user_data.invite_code:
+                raise ValidationException("Invite code is required to join an existing organization")
+            if not await self._validate_invite_code(org.id, user_data.invite_code):
+                raise ValidationException("Invalid or expired invite code")
+            # Force EMPLOYEE role when joining via invite — admins promote manually
+            role = UserRole.EMPLOYEE
         elif user_data.org_name:
             # Create new organization
             org = await self._create_organization(user_data.org_name)
@@ -227,13 +233,16 @@ class AuthService:
     async def change_password(
         self,
         user_id: str,
+        current_password: str,
         new_password: str,
     ) -> User:
         """
         Change user password via Supabase admin API.
+        Verifies current password before allowing the change.
 
         Args:
             user_id: Local user ID
+            current_password: Current password for verification
             new_password: New password
 
         Returns:
@@ -246,6 +255,15 @@ class AuthService:
         if not user.supabase_auth_id:
             raise ValidationException("User does not have a Supabase auth account")
 
+        # Verify current password before allowing change
+        try:
+            await asyncio.to_thread(
+                self.supabase.auth.sign_in_with_password,
+                {"email": user.email, "password": current_password},
+            )
+        except Exception:
+            raise InvalidCredentialsException("Current password is incorrect")
+
         try:
             await asyncio.to_thread(
                 self.supabase.auth.admin.update_user_by_id,
@@ -254,7 +272,7 @@ class AuthService:
             )
         except Exception as e:
             logger.error(f"Supabase password change failed: {e}")
-            raise ValidationException(f"Failed to change password: {e}")
+            raise ValidationException("Failed to change password")
 
         logger.info(f"Password changed for user: {user.email}")
 
@@ -318,8 +336,19 @@ class AuthService:
         )
         return result.scalar_one_or_none()
 
+    async def _validate_invite_code(self, org_id: str, invite_code: str) -> bool:
+        """Validate an invite code against the organization's stored code."""
+        org = await self._get_organization_by_id(org_id)
+        if not org:
+            return False
+        stored_code = (org.settings_data or {}).get("invite_code")
+        if not stored_code:
+            # No invite code configured — joining is blocked
+            return False
+        return secrets.compare_digest(stored_code, invite_code)
+
     async def _create_organization(self, name: str) -> Organization:
-        """Create a new organization."""
+        """Create a new organization with an auto-generated invite code."""
         # Generate unique slug
         base_slug = slugify(name)
         slug = base_slug
@@ -340,6 +369,7 @@ class AuthService:
             slug=slug,
             plan=PlanTier.STARTER,
             is_active=True,
+            settings_data={"invite_code": secrets.token_urlsafe(16)},
         )
 
         self.db.add(org)
