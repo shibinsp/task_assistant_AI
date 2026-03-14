@@ -8,12 +8,12 @@ import enum
 from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from app.database import Base
+from app.database import Base, Enum
 
 
 class SkillCategory(str, enum.Enum):

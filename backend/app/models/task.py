@@ -3,14 +3,14 @@ TaskPulse - AI Assistant - Task Model
 Task management with subtasks, dependencies, and AI scoring
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime
 from typing import Optional, List
 
-from app.database import Base
+from app.database import Base, Enum
 
 
 class TaskStatus(str, enum.Enum):

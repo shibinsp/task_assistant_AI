@@ -3,7 +3,7 @@ TaskPulse - AI Assistant - Check-In Model
 Smart check-in system for proactive task monitoring
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from app.database import Base
+from app.database import Base, Enum
 
 
 class CheckInTrigger(str, enum.Enum):

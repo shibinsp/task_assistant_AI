@@ -3,12 +3,12 @@ TaskPulse - AI Assistant - Organization Model
 Multi-tenant organization support
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean
+from sqlalchemy import Column, String, Text, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 import enum
 
-from app.database import Base
+from app.database import Base, Enum
 
 
 class PlanTier(str, enum.Enum):

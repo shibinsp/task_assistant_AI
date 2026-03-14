@@ -3,14 +3,35 @@ TaskPulse - AI Assistant - Database Configuration
 PostgreSQL (Supabase) database setup with SQLAlchemy async support
 """
 
+import enum as _enum
 import ssl
 import uuid
 from typing import AsyncGenerator
 
 from sqlalchemy import Column, DateTime, func
+from sqlalchemy import Enum as _SQLAlchemyEnum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, declared_attr
+
+
+class Enum(_SQLAlchemyEnum):
+    """
+    Custom SQLAlchemy Enum that uses Python enum *values* (not names) for DB storage.
+
+    PostgreSQL enum types were created with lowercase values (e.g. 'super_admin'),
+    matching the Python enum values. SQLAlchemy's default Enum uses enum names
+    (e.g. 'SUPER_ADMIN'), causing a mismatch. This custom class fixes that.
+    """
+
+    def __init__(self, *enums, **kw):
+        if (
+            len(enums) == 1
+            and isinstance(enums[0], type)
+            and issubclass(enums[0], _enum.Enum)
+        ):
+            kw.setdefault("values_callable", lambda x: [e.value for e in x])
+        super().__init__(*enums, **kw)
 
 from app.config import settings
 

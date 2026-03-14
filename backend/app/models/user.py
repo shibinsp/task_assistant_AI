@@ -4,7 +4,7 @@ User management with role-based access control
 """
 
 from sqlalchemy import (
-    Column, String, Enum, Text, Boolean, ForeignKey, DateTime,
+    Column, String, Text, Boolean, ForeignKey, DateTime,
     Integer, UniqueConstraint, func
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
@@ -12,7 +12,7 @@ from sqlalchemy.orm import relationship
 import enum
 from datetime import datetime
 
-from app.database import Base
+from app.database import Base, Enum
 
 
 class UserRole(str, enum.Enum):
