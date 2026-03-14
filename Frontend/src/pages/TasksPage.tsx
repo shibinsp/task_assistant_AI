@@ -1001,7 +1001,7 @@ function SubtaskTree({
             {hasChildren && isExpanded && (
               <SubtaskTree
                 taskId={sub.id}
-                subtasks={sub.subtasks}
+                subtasks={sub.subtasks ?? []}
                 level={level + 1}
                 onRefresh={onRefresh}
               />
