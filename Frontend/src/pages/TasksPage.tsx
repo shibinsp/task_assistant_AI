@@ -33,7 +33,6 @@ import {
   Trash2,
   UserCog,
   Users,
-  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1540,7 +1539,7 @@ export default function TasksPage() {
   const [sortBy, setSortBy] = useState<string>('newest');
   const [selectedTask, setSelectedTask] = useState<FrontendTask | null>(null);
   const queryClient = useQueryClient();
-  const { toggleTaskCreationSidebar } = useUIStore();
+  const { toggleTaskCreationSidebar: _toggleTaskCreationSidebar } = useUIStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.tasks.list({ search: searchQuery || undefined, root_only: true, limit: 100 }),

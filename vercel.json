@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd frontend && npm install",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "runtime": "@vercel/python@4.0.0",
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Authorization,Content-Type,Accept,X-Request-ID,X-CSRF-Token" }
+      ]
+    }
+  ]
+}

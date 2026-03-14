@@ -61,6 +61,7 @@ export interface ApiCurrentUser {
 }
 
 export interface ApiPasswordChange {
+  current_password?: string;
   new_password: string;
 }
 

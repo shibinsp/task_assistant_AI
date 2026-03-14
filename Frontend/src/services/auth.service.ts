@@ -55,4 +55,17 @@ export const authService = {
     const { data } = await apiClient.patch<ApiConsentResponse>('/auth/consent', payload);
     return data;
   },
+
+  async getSessions(): Promise<Array<{ id: string; device_info?: string; user_agent?: string; ip_address?: string; last_activity?: string; is_current?: boolean }>> {
+    try {
+      const { data } = await apiClient.get('/auth/sessions');
+      return data;
+    } catch {
+      return [];
+    }
+  },
+
+  async logoutAll(): Promise<void> {
+    await apiClient.post('/auth/logout-all');
+  },
 };

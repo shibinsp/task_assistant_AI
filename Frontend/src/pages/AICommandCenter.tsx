@@ -94,8 +94,6 @@ function CheckInPromptBubble({
   message: Message;
   onReply: (text: string) => void;
 }) {
-  const taskTitle = (message.metadata?.task_title as string) || 'your task';
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}

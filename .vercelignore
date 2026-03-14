@@ -1,0 +1,21 @@
+# Backend dev files
+backend/.env
+backend/scripts/
+backend/supabase/
+backend/__pycache__/
+backend/**/__pycache__/
+
+# Dev & CI
+.github/
+.claude/
+*.md
+tests/
+e2e/
+
+# IDE
+.vscode/
+.idea/
+
+# System
+.DS_Store
+*.pyc
