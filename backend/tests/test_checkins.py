@@ -5,7 +5,7 @@ Tests for check-in endpoints
 
 import pytest
 from httpx import AsyncClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from tests.conftest import auth_headers
 from app.models.task import Task, TaskStatus, TaskPriority
@@ -42,7 +42,7 @@ class TestCheckInEndpoints:
                 task_id=task.id,
                 user_id=test_user.id,
                 cycle_number=i + 1,
-                scheduled_at=datetime.utcnow() - timedelta(hours=3 * i)
+                scheduled_at=datetime.now(timezone.utc) - timedelta(hours=3 * i)
             )
             test_session.add(checkin)
         await test_session.commit()
@@ -79,7 +79,7 @@ class TestCheckInEndpoints:
             task_id=task.id,
             user_id=test_user.id,
             cycle_number=1,
-            scheduled_at=datetime.utcnow()
+            scheduled_at=datetime.now(timezone.utc)
         )
         test_session.add(checkin)
         await test_session.commit()
@@ -116,7 +116,7 @@ class TestCheckInEndpoints:
             task_id=task.id,
             user_id=test_user.id,
             cycle_number=1,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=datetime.now(timezone.utc),
             response_status="pending"
         )
         test_session.add(checkin)
@@ -159,7 +159,7 @@ class TestCheckInEndpoints:
             task_id=task.id,
             user_id=test_user.id,
             cycle_number=1,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=datetime.now(timezone.utc),
             response_status="pending"
         )
         test_session.add(checkin)
@@ -245,7 +245,7 @@ class TestCheckInEndpoints:
             task_id=task.id,
             user_id=test_user.id,
             cycle_number=1,
-            scheduled_at=datetime.utcnow() - timedelta(hours=1),
+            scheduled_at=datetime.now(timezone.utc) - timedelta(hours=1),
             response_status="pending"
         )
         test_session.add(checkin)
@@ -282,7 +282,7 @@ class TestCheckInEndpoints:
             task_id=task.id,
             user_id=test_user.id,
             cycle_number=1,
-            scheduled_at=datetime.utcnow(),
+            scheduled_at=datetime.now(timezone.utc),
             response_status="responded",
             has_blocker=True
         )

@@ -4,7 +4,7 @@ Third-party integrations and webhooks
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 import hashlib
@@ -95,7 +95,7 @@ class IntegrationService:
         if integration:
             integration.status = status
             if status == IntegrationStatus.ACTIVE:
-                integration.connected_at = datetime.utcnow()
+                integration.connected_at = datetime.now(timezone.utc)
             if error_message:
                 integration.error_message = error_message
             else:
@@ -138,7 +138,7 @@ class IntegrationService:
         sync_result = await self._perform_sync(integration)
 
         # Update last sync time
-        integration.last_sync_at = datetime.utcnow()
+        integration.last_sync_at = datetime.now(timezone.utc)
         integration.sync_status = "completed" if sync_result["success"] else "failed"
         await self.db.flush()
 
@@ -413,7 +413,7 @@ class IntegrationService:
 
             # Update webhook stats
             webhook.delivery_count = (webhook.delivery_count or 0) + 1
-            webhook.last_delivery_at = datetime.utcnow()
+            webhook.last_delivery_at = datetime.now(timezone.utc)
 
         except Exception as e:
             delivery.success = False
@@ -422,7 +422,7 @@ class IntegrationService:
 
             # Update failure count
             webhook.failure_count = (webhook.failure_count or 0) + 1
-            webhook.last_failure_at = datetime.utcnow()
+            webhook.last_failure_at = datetime.now(timezone.utc)
 
         self.db.add(delivery)
         await self.db.flush()
@@ -500,7 +500,7 @@ class IntegrationService:
         test_payload = {
             "event": "test",
             "message": "This is a test webhook delivery",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "webhook_id": webhook_id
         }
 

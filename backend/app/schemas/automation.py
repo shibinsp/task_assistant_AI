@@ -8,14 +8,15 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
 from app.models.automation import PatternStatus, AgentStatus
+from app.schemas._types import StrUUID
 
 
 # ==================== Automation Pattern Schemas ====================
 
 class AutomationPatternResponse(BaseModel):
     """Schema for automation pattern in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     name: str
     description: Optional[str] = None
 
@@ -83,13 +84,13 @@ class AIAgentUpdate(BaseModel):
 
 class AIAgentResponse(BaseModel):
     """Schema for AI agent in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     name: str
     description: Optional[str] = None
 
     # Configuration
-    pattern_id: Optional[str] = None
+    pattern_id: Optional[StrUUID] = None
     trigger_conditions: Dict[str, Any] = Field(default_factory=dict)
     actions: List[Dict[str, Any]] = Field(default_factory=list)
     schedule: Optional[str] = None
@@ -132,8 +133,8 @@ class AIAgentStatusUpdate(BaseModel):
 
 class AgentRunResponse(BaseModel):
     """Schema for agent run in API responses."""
-    id: str
-    agent_id: str
+    id: StrUUID
+    agent_id: StrUUID
 
     # Execution
     trigger_type: str  # scheduled, manual, event
@@ -180,7 +181,7 @@ class ShadowReportMismatch(BaseModel):
 
 class ShadowReportResponse(BaseModel):
     """Response for shadow mode validation report."""
-    agent_id: str
+    agent_id: StrUUID
     agent_name: str
 
     # Summary

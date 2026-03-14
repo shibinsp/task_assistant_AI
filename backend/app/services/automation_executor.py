@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -79,7 +79,7 @@ class AutomationExecutor:
             id=generate_uuid(),
             agent_id=agent.id,
             org_id=agent.org_id,
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             status="running",
             is_shadow=is_shadow,
         )
@@ -104,7 +104,7 @@ class AutomationExecutor:
 
             elapsed_ms = int((time.time() - start_time) * 1000)
             run.status = "success" if all_success else "failed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             run.execution_time_ms = elapsed_ms
             run.output_data = {
                 "ai_driven": is_ai_driven,
@@ -133,7 +133,7 @@ class AutomationExecutor:
             logger.error(f"Automation execution failed for agent {agent.id}: {e}")
             elapsed_ms = int((time.time() - start_time) * 1000)
             run.status = "failed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(timezone.utc)
             run.execution_time_ms = elapsed_ms
             run.error_message = str(e)
             run.output_data = {"error": str(e)}
@@ -249,7 +249,7 @@ class AutomationExecutor:
         overdue_result = await self.db.execute(
             select(Task).where(
                 Task.org_id == org_id,
-                Task.deadline < datetime.utcnow(),
+                Task.deadline < datetime.now(timezone.utc),
                 Task.status.notin_([TaskStatus.DONE, TaskStatus.ARCHIVED]),
             ).limit(10)
         )
@@ -751,7 +751,7 @@ Should this agent execute now? Return JSON only."""
         elif condition_type == "overdue_tasks_exist":
             query = select(func.count()).select_from(Task).where(
                 Task.org_id == org_id,
-                Task.deadline < datetime.utcnow(),
+                Task.deadline < datetime.now(timezone.utc),
                 Task.status.notin_([TaskStatus.DONE, TaskStatus.ARCHIVED]),
             )
             count = (await self.db.execute(query)).scalar() or 0
@@ -1281,7 +1281,7 @@ Pick the best assignee. Return JSON only."""
         agent.total_runs = (agent.total_runs or 0) + 1
         if success:
             agent.successful_runs = (agent.successful_runs or 0) + 1
-        agent.last_run_at = datetime.utcnow()
+        agent.last_run_at = datetime.now(timezone.utc)
 
         if success:
             hours_per_run = agent.config.get("hours_saved_per_run", 0.25)

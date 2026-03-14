@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -181,7 +181,7 @@ async def accept_pattern(
 
     pattern.status = PatternStatus.ACCEPTED
     pattern.accepted_by = current_user.id
-    pattern.accepted_at = datetime.utcnow()
+    pattern.accepted_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(pattern)
     await db.commit()
@@ -348,13 +348,13 @@ async def update_agent_status(
 
     # Track shadow mode start
     if status_data.status == AgentStatus.SHADOW and old_status != AgentStatus.SHADOW:
-        agent.shadow_started_at = datetime.utcnow()
+        agent.shadow_started_at = datetime.now(timezone.utc)
 
     # Track approval and live start
     if status_data.status == AgentStatus.LIVE:
         agent.approved_by = current_user.id
-        agent.approved_at = datetime.utcnow()
-        agent.live_started_at = datetime.utcnow()
+        agent.approved_at = datetime.now(timezone.utc)
+        agent.live_started_at = datetime.now(timezone.utc)
 
     await db.flush()
     await db.refresh(agent)
@@ -416,7 +416,7 @@ async def trigger_agent(
         **trigger_request.trigger_data,
         "trigger_type": "manual",
         "triggered_by": current_user.id,
-        "triggered_at": datetime.utcnow().isoformat(),
+        "triggered_at": datetime.now(timezone.utc).isoformat(),
     }
 
     is_shadow = (agent.status == AgentStatus.SHADOW)

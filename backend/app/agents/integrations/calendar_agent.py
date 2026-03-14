@@ -5,7 +5,7 @@ Sync with Google Calendar and Outlook for scheduling and reminders.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from ..base import AgentCapability, EventType
@@ -391,7 +391,7 @@ class CalendarAgent(BaseIntegrationAgent):
     ) -> datetime:
         """Find next available time slot"""
         # In production, query calendar for free slots
-        start = start_from or datetime.utcnow()
+        start = start_from or datetime.now(timezone.utc)
 
         # Round to next hour
         start = start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)

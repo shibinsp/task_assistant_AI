@@ -3,11 +3,11 @@ TaskPulse - AI Assistant - Organization Model
 Multi-tenant organization support
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean
+from sqlalchemy import Column, String, Text, Boolean
 from sqlalchemy.orm import relationship
 import enum
 
-from app.database import Base
+from app.database import Base, CompatibleJSONB, Enum
 
 
 class PlanTier(str, enum.Enum):
@@ -38,8 +38,8 @@ class Organization(Base):
         nullable=False
     )
 
-    # Settings stored as JSON string (SQLite doesn't have native JSON)
-    settings_json = Column(Text, default="{}")
+    # Settings stored as JSONB
+    settings_data = Column(CompatibleJSONB, default={})
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
@@ -53,18 +53,11 @@ class Organization(Base):
 
     @property
     def settings(self) -> dict:
-        """Parse settings JSON string to dict."""
-        import json
-        try:
-            return json.loads(self.settings_json or "{}")
-        except json.JSONDecodeError:
-            return {}
+        return self.settings_data or {}
 
     @settings.setter
     def settings(self, value: dict) -> None:
-        """Serialize settings dict to JSON string."""
-        import json
-        self.settings_json = json.dumps(value)
+        self.settings_data = value
 
     @property
     def is_enterprise(self) -> bool:

@@ -10,7 +10,7 @@ import random
 import re
 from collections import OrderedDict
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass
 from enum import Enum
 
@@ -63,7 +63,7 @@ class AICache:
         key = self._make_key(prompt, context)
         if key in self._cache:
             response, timestamp = self._cache[key]
-            if datetime.utcnow() - timestamp < self.ttl:
+            if datetime.now(timezone.utc) - timestamp < self.ttl:
                 # Move to end (most recently used)
                 self._cache.move_to_end(key)
                 response.cached = True
@@ -78,7 +78,7 @@ class AICache:
         # If key already exists, remove it first so it goes to end
         if key in self._cache:
             del self._cache[key]
-        self._cache[key] = (response, datetime.utcnow())
+        self._cache[key] = (response, datetime.now(timezone.utc))
         # Evict oldest entries if over max size
         while len(self._cache) > self.max_size:
             self._cache.popitem(last=False)

@@ -3,6 +3,7 @@ TaskPulse - AI Assistant - API Dependencies
 FastAPI dependencies for authentication and authorization
 """
 
+import logging
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -10,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.core.security import verify_token, TokenPayload
+from app.core.security import verify_supabase_token, TokenPayload
 from app.core.exceptions import (
     AuthenticationException,
     InvalidTokenException,
@@ -18,6 +19,8 @@ from app.core.exceptions import (
     InsufficientPermissionsException
 )
 from app.models.user import User, UserRole
+
+logger = logging.getLogger(__name__)
 
 
 # OAuth2 scheme for token extraction
@@ -32,28 +35,46 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """
-    Get current user from JWT token.
+    Get current user from a Supabase JWT token.
 
-    Returns None if no token or invalid token.
+    Flow:
+        1. Extract Bearer token
+        2. Verify with Supabase JWT secret
+        3. Look up user by supabase_auth_id (primary)
+        4. Fall back to User.id lookup for backward compatibility during migration
+        5. Return the User or None
+
+    Returns None if no token, invalid token, or user not found.
     Use get_current_active_user for endpoints that require authentication.
     """
     if not token:
         return None
 
-    # Verify token
-    payload = verify_token(token, token_type="access")
+    # Verify Supabase token
+    payload = verify_supabase_token(token)
     if not payload:
         return None
 
-    user_id = payload.get("sub")
-    if not user_id:
+    sub = payload.get("sub")
+    if not sub:
         return None
 
-    # Get user from database
+    # Primary lookup: by supabase_auth_id
     result = await db.execute(
-        select(User).where(User.id == user_id)
+        select(User).where(User.supabase_auth_id == sub)
     )
     user = result.scalar_one_or_none()
+
+    # Fallback: look up by User.id for backward compatibility during migration
+    if user is None:
+        logger.debug(
+            "User not found by supabase_auth_id=%s, falling back to User.id lookup",
+            sub,
+        )
+        result = await db.execute(
+            select(User).where(User.id == sub)
+        )
+        user = result.scalar_one_or_none()
 
     return user
 

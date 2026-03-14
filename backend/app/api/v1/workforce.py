@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 from app.database import get_db
@@ -168,7 +168,7 @@ async def get_user_workforce_score(
             user_id=user_id, overall_score=75.0, velocity_score=78.0, quality_score=82.0,
             self_sufficiency_score=70.0, learning_score=75.0, collaboration_score=80.0,
             percentile_rank=65.0, attrition_risk_score=0.15, burnout_risk_score=0.20,
-            score_trend="stable", snapshot_date=datetime.utcnow()
+            score_trend="stable", snapshot_date=datetime.now(timezone.utc)
         )
 
     return WorkforceScoreResponse(
@@ -239,7 +239,7 @@ async def get_org_health(
             management_quality_index=82.0, automation_maturity_index=45.0,
             delivery_predictability_index=72.0, total_employees=50, active_tasks=120,
             blocked_tasks=8, overdue_tasks=5, high_attrition_risk_count=3,
-            high_burnout_risk_count=5, snapshot_date=datetime.utcnow()
+            high_burnout_risk_count=5, snapshot_date=datetime.now(timezone.utc)
         )
 
     return OrgHealthResponse(

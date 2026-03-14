@@ -31,6 +31,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _task_to_response(task) -> TaskResponse:
+    """Convert a Task ORM model to TaskResponse, avoiding duplicate kwargs."""
+    # Get model columns as dict, excluding SQLAlchemy internals
+    data = {k: v for k, v in task.__dict__.items() if not k.startswith("_")}
+    # Add computed properties (not in __dict__)
+    data["is_subtask"] = task.is_subtask
+    data["is_blocked"] = task.is_blocked
+    data["is_completed"] = task.is_completed
+    data["is_overdue"] = task.is_overdue
+    data["progress_percentage"] = task.progress_percentage
+    return TaskResponse(**data)
+
+
+
 def get_task_service(db: AsyncSession = Depends(get_db)) -> TaskService:
     """Dependency to get task service."""
     return TaskService(db)
@@ -87,17 +101,7 @@ async def create_task(
             "org_id": current_user.org_id,
         })
 
-    return TaskResponse(
-        **task.__dict__,
-        tools=task.tools,
-        tags=task.tags,
-        skills_required=task.skills_required,
-        is_subtask=task.is_subtask,
-        is_blocked=task.is_blocked,
-        is_completed=task.is_completed,
-        is_overdue=task.is_overdue,
-        progress_percentage=task.progress_percentage
-    )
+    return _task_to_response(task)
 
 
 @router.get(
@@ -149,17 +153,7 @@ async def list_tasks(
     )
 
     task_responses = [
-        TaskResponse(
-            **t.__dict__,
-            tools=t.tools,
-            tags=t.tags,
-            skills_required=t.skills_required,
-            is_subtask=t.is_subtask,
-            is_blocked=t.is_blocked,
-            is_completed=t.is_completed,
-            is_overdue=t.is_overdue,
-            progress_percentage=t.progress_percentage
-        ) for t in tasks
+        _task_to_response(t) for t in tasks
     ]
 
     return TaskListResponse(
@@ -271,17 +265,7 @@ async def update_task(
 
     task = await service.update_task(task_id, current_user.org_id, task_data, current_user.id)
 
-    return TaskResponse(
-        **task.__dict__,
-        tools=task.tools,
-        tags=task.tags,
-        skills_required=task.skills_required,
-        is_subtask=task.is_subtask,
-        is_blocked=task.is_blocked,
-        is_completed=task.is_completed,
-        is_overdue=task.is_overdue,
-        progress_percentage=task.progress_percentage
-    )
+    return _task_to_response(task)
 
 
 @router.patch(
@@ -326,17 +310,7 @@ async def update_task_status(
             "blocker_type": status_data.blocker_type.value if status_data.blocker_type else None,
         })
 
-    return TaskResponse(
-        **task.__dict__,
-        tools=task.tools,
-        tags=task.tags,
-        skills_required=task.skills_required,
-        is_subtask=task.is_subtask,
-        is_blocked=task.is_blocked,
-        is_completed=task.is_completed,
-        is_overdue=task.is_overdue,
-        progress_percentage=task.progress_percentage
-    )
+    return _task_to_response(task)
 
 
 @router.post(
@@ -359,17 +333,7 @@ async def publish_draft(
         "org_id": current_user.org_id,
     })
 
-    return TaskResponse(
-        **task.__dict__,
-        tools=task.tools,
-        tags=task.tags,
-        skills_required=task.skills_required,
-        is_subtask=task.is_subtask,
-        is_blocked=task.is_blocked,
-        is_completed=task.is_completed,
-        is_overdue=task.is_overdue,
-        progress_percentage=task.progress_percentage
-    )
+    return _task_to_response(task)
 
 
 @router.delete(
@@ -417,17 +381,7 @@ async def assign_task(
             "assigned_to": assignee_id,
         })
 
-    return TaskResponse(
-        **task.__dict__,
-        tools=task.tools,
-        tags=task.tags,
-        skills_required=task.skills_required,
-        is_subtask=task.is_subtask,
-        is_blocked=task.is_blocked,
-        is_completed=task.is_completed,
-        is_overdue=task.is_overdue,
-        progress_percentage=task.progress_percentage
-    )
+    return _task_to_response(task)
 
 
 # ==================== Bulk Operations ====================
@@ -481,17 +435,7 @@ async def create_subtask(
         task_id, current_user.org_id, subtask_data, current_user.id
     )
 
-    return TaskResponse(
-        **subtask.__dict__,
-        tools=subtask.tools,
-        tags=subtask.tags,
-        skills_required=subtask.skills_required,
-        is_subtask=subtask.is_subtask,
-        is_blocked=subtask.is_blocked,
-        is_completed=subtask.is_completed,
-        is_overdue=subtask.is_overdue,
-        progress_percentage=subtask.progress_percentage
-    )
+    return _task_to_response(subtask)
 
 
 @router.get(
@@ -509,17 +453,7 @@ async def get_subtasks(
     subtasks = await service.get_subtasks(task_id, current_user.org_id)
 
     return [
-        TaskResponse(
-            **s.__dict__,
-            tools=s.tools,
-            tags=s.tags,
-            skills_required=s.skills_required,
-            is_subtask=s.is_subtask,
-            is_blocked=s.is_blocked,
-            is_completed=s.is_completed,
-            is_overdue=s.is_overdue,
-            progress_percentage=s.progress_percentage
-        ) for s in subtasks
+        _task_to_response(s) for s in subtasks
     ]
 
 
@@ -541,17 +475,7 @@ async def reorder_subtasks(
     )
 
     return [
-        TaskResponse(
-            **s.__dict__,
-            tools=s.tools,
-            tags=s.tags,
-            skills_required=s.skills_required,
-            is_subtask=s.is_subtask,
-            is_blocked=s.is_blocked,
-            is_completed=s.is_completed,
-            is_overdue=s.is_overdue,
-            progress_percentage=s.progress_percentage
-        ) for s in subtasks
+        _task_to_response(s) for s in subtasks
     ]
 
 
@@ -886,15 +810,5 @@ async def apply_decomposition(
         created_subtasks.append(subtask)
 
     return [
-        TaskResponse(
-            **s.__dict__,
-            tools=s.tools,
-            tags=s.tags,
-            skills_required=s.skills_required,
-            is_subtask=s.is_subtask,
-            is_blocked=s.is_blocked,
-            is_completed=s.is_completed,
-            is_overdue=s.is_overdue,
-            progress_percentage=s.progress_percentage
-        ) for s in created_subtasks
+        _task_to_response(s) for s in created_subtasks
     ]

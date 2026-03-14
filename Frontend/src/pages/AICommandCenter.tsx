@@ -94,8 +94,6 @@ function CheckInPromptBubble({
   message: Message;
   onReply: (text: string) => void;
 }) {
-  const taskTitle = (message.metadata?.task_title as string) || 'your task';
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -279,7 +277,7 @@ export default function AICommandCenter() {
     if (savedId) {
       conversationLoaded.current = true;
       chatService.getConversation(savedId).then((conv) => {
-        const loaded: Message[] = (conv.messages ?? []).map((m: any, i: number) => ({
+        const loaded: Message[] = (conv.messages ?? []).map((m: { role: string; content: string; timestamp: string }, i: number) => ({
           id: `${savedId}-${i}`,
           role: (m.role === 'agent' ? 'assistant' : m.role) as 'user' | 'assistant',
           content: m.content,

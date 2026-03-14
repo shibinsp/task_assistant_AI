@@ -3,12 +3,15 @@ TaskPulse - AI Assistant - User Model
 User management with role-based access control
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, DateTime
+from sqlalchemy import (
+    Column, String, Text, Boolean, ForeignKey, DateTime,
+    Integer, UniqueConstraint, func
+)
 from sqlalchemy.orm import relationship
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
-from app.database import Base
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class UserRole(str, enum.Enum):
@@ -39,7 +42,7 @@ class User(Base):
 
     # Organization relationship
     org_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -49,6 +52,7 @@ class User(Base):
     email = Column(String(255), nullable=False, index=True)
     password_hash = Column(String(255), nullable=True)  # Null for SSO-only users
     is_sso_user = Column(Boolean, default=False)
+    supabase_auth_id = Column(CompatibleUUID, unique=True, index=True, nullable=True)
 
     # Profile
     first_name = Column(String(100), nullable=False)
@@ -70,22 +74,22 @@ class User(Base):
     )
 
     # Team/reporting structure
-    team_id = Column(String(36), nullable=True, index=True)
+    team_id = Column(CompatibleUUID, nullable=True, index=True)
     manager_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
 
-    # GDPR consent tracking (stored as JSON string)
-    consent_json = Column(Text, default="{}")
+    # GDPR consent tracking
+    consent_data = Column(CompatibleJSONB, default={})
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)
     is_email_verified = Column(Boolean, default=False)
-    last_login = Column(DateTime, nullable=True)
-    failed_login_attempts = Column(String(10), default="0")  # Stored as string for SQLite
-    lockout_until = Column(DateTime, nullable=True)  # Account lockout after failed attempts
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    lockout_until = Column(DateTime(timezone=True), nullable=True)  # Account lockout after failed attempts
 
     # Relationships
     organization = relationship("Organization", back_populates="users")
@@ -98,8 +102,7 @@ class User(Base):
 
     # Index for unique email per organization
     __table_args__ = (
-        # Note: SQLite doesn't enforce this well, we'll handle in app logic
-        # Index('idx_user_org_email', 'org_id', 'email', unique=True),
+        UniqueConstraint('org_id', 'email', name='uq_user_org_email'),
     )
 
     def __repr__(self) -> str:
@@ -112,18 +115,11 @@ class User(Base):
 
     @property
     def consent(self) -> dict:
-        """Parse consent JSON string to dict."""
-        import json
-        try:
-            return json.loads(self.consent_json or "{}")
-        except json.JSONDecodeError:
-            return {}
+        return self.consent_data or {}
 
     @consent.setter
     def consent(self, value: dict) -> None:
-        """Serialize consent dict to JSON string."""
-        import json
-        self.consent_json = json.dumps(value)
+        self.consent_data = value
 
     @property
     def has_ai_monitoring_consent(self) -> bool:
@@ -139,7 +135,7 @@ class User(Base):
         """Update a specific consent value."""
         current_consent = self.consent
         current_consent[consent_type] = value
-        current_consent[f"{consent_type}_updated_at"] = datetime.utcnow().isoformat()
+        current_consent[f"{consent_type}_updated_at"] = datetime.now(timezone.utc).isoformat()
         self.consent = current_consent
 
     @property
@@ -198,51 +194,3 @@ class User(Base):
             return other_user.manager_id == self.id
 
         return False
-
-
-class Session(Base):
-    """
-    User session tracking for security and analytics.
-    """
-
-    __tablename__ = "sessions"
-
-    user_id = Column(
-        String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True
-    )
-
-    # Session info
-    token_hash = Column(String(255), nullable=False, unique=True, index=True)
-    refresh_token_hash = Column(String(255), nullable=True, unique=True)
-
-    # Device/client info
-    device_info = Column(String(255), nullable=True)
-    ip_address = Column(String(45), nullable=True)  # IPv6 can be up to 45 chars
-    user_agent = Column(String(500), nullable=True)
-
-    # Validity
-    expires_at = Column(DateTime, nullable=False)
-    refresh_expires_at = Column(DateTime, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-
-    # Activity tracking
-    last_activity = Column(DateTime, default=datetime.utcnow)
-
-    # Relationships
-    user = relationship("User", backref="sessions")
-
-    def __repr__(self) -> str:
-        return f"<Session(id={self.id}, user_id={self.user_id}, active={self.is_active})>"
-
-    @property
-    def is_expired(self) -> bool:
-        """Check if session is expired."""
-        return datetime.utcnow() > self.expires_at
-
-    @property
-    def is_valid(self) -> bool:
-        """Check if session is valid (active and not expired)."""
-        return self.is_active and not self.is_expired

@@ -52,6 +52,7 @@ export interface ApiCurrentUser {
   team_id?: string;
   manager_id?: string;
   last_login?: string;
+  consent?: ApiConsentResponse;
   created_at: string;
   updated_at: string;
   organization_name: string;
@@ -60,7 +61,7 @@ export interface ApiCurrentUser {
 }
 
 export interface ApiPasswordChange {
-  current_password: string;
+  current_password?: string;
   new_password: string;
 }
 
@@ -68,7 +69,6 @@ export interface ApiRegisterResponse {
   message: string;
   user: ApiCurrentUser;
   organization: { id: string; name: string; slug: string };
-  tokens: ApiTokenResponse;
 }
 
 export interface ApiLoginResponse {
@@ -275,7 +275,7 @@ export interface ApiDashboardMetrics {
     assigned_to?: string;
   }>;
   generated_at?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ApiVelocityData {
@@ -497,16 +497,6 @@ export interface ApiConsentUpdate {
   skill_tracking?: boolean;
   analytics?: boolean;
   marketing?: boolean;
-}
-
-export interface ApiSession {
-  id: string;
-  device_info?: string;
-  ip_address?: string;
-  user_agent?: string;
-  last_activity?: string;
-  created_at: string;
-  is_current: boolean;
 }
 
 export interface ApiForgotPassword {
@@ -759,7 +749,7 @@ export interface ApiCheckInConfigCreate {
   ai_sentiment_analysis?: boolean;
 }
 
-export interface ApiCheckInConfigUpdate extends Partial<ApiCheckInConfigCreate> { }
+export type ApiCheckInConfigUpdate = Partial<ApiCheckInConfigCreate>;
 
 export interface ApiCheckInStatistics {
   total_checkins: number;

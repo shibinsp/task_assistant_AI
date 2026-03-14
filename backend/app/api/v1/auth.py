@@ -1,42 +1,37 @@
 """
 TaskPulse - AI Assistant - Authentication API
-Endpoints for user authentication and session management
+Endpoints for user authentication via Supabase Auth
 """
 
-from typing import Optional
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from pydantic import BaseModel, Field
 
 from app.database import get_db
-from app.config import settings
 from app.services.auth_service import AuthService
 from app.schemas.user import (
     UserRegister,
     UserLogin,
-    TokenResponse,
-    TokenRefresh,
     PasswordReset,
-    PasswordResetConfirm,
     PasswordChange,
     UserResponse,
     CurrentUserResponse,
     ConsentUpdate,
     ConsentResponse,
-    SessionResponse,
-    SessionListResponse
 )
-from app.api.v1.dependencies import get_current_user, get_current_active_user
+from app.api.v1.dependencies import get_current_active_user
 from app.models.user import User
 
 
-class GoogleAuthRequest(BaseModel):
-    """Google OAuth login request."""
-    credential: str = Field(..., description="Google ID token from Sign In with Google")
-
-
 router = APIRouter()
+
+
+# ==================== Request/Response Models ====================
+
+class RefreshTokenRequest(BaseModel):
+    """Request body for token refresh."""
+    refresh_token: str = Field(..., description="Supabase refresh token")
 
 
 # ==================== Registration & Login ====================
@@ -46,12 +41,12 @@ router = APIRouter()
     response_model=dict,
     status_code=status.HTTP_201_CREATED,
     summary="Register new user",
-    description="Register a new user. Creates new organization if org_name provided, or joins existing if org_id provided."
+    description="Register a new user via Supabase Auth. Creates new organization if org_name provided, or joins existing if org_id provided.",
 )
 async def register(
     user_data: UserRegister,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Register a new user account.
@@ -65,14 +60,13 @@ async def register(
     """
     auth_service = AuthService(db)
 
-    # Get client info
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent")
 
-    user, org, tokens = await auth_service.register(
+    user, org = await auth_service.register(
         user_data,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
 
     return {
@@ -81,9 +75,8 @@ async def register(
         "organization": {
             "id": org.id,
             "name": org.name,
-            "slug": org.slug
+            "slug": org.slug,
         },
-        "tokens": tokens
     }
 
 
@@ -91,235 +84,86 @@ async def register(
     "/login",
     response_model=dict,
     summary="User login",
-    description="Authenticate user with email and password"
+    description="Authenticate user with email and password via Supabase Auth",
 )
 async def login(
     credentials: UserLogin,
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Authenticate user and get access tokens.
+    Authenticate user and get Supabase session tokens.
 
     - **email**: User's email address
     - **password**: User's password
 
-    Returns access and refresh tokens for API authentication.
+    Returns user info and Supabase access/refresh tokens.
     """
     auth_service = AuthService(db)
 
-    # Get client info
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("User-Agent")
 
-    user, tokens = await auth_service.login(
+    user, supabase_session = await auth_service.login(
         email=credentials.email,
         password=credentials.password,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
 
     return {
         "message": "Login successful",
         "user": UserResponse.model_validate(user),
-        "tokens": tokens
-    }
-
-
-@router.post(
-    "/google",
-    response_model=dict,
-    summary="Google OAuth login",
-    description="Authenticate with Google Sign-In ID token"
-)
-async def google_login(
-    payload: GoogleAuthRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Authenticate user with a Google ID token.
-
-    - **credential**: The ID token from Google Sign-In
-
-    Creates a new account if the user doesn't exist.
-    Returns access and refresh tokens.
-    """
-    import logging
-    from google.oauth2 import id_token
-    from google.auth.transport import requests as google_requests
-
-    logger = logging.getLogger(__name__)
-
-    client_id = settings.GOOGLE_CLIENT_ID
-    if not client_id:
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Google OAuth is not configured"
-        )
-
-    # Verify the Google ID token
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            payload.credential,
-            google_requests.Request(),
-            client_id,
-        )
-    except ValueError as e:
-        logger.warning(f"Google token verification failed: {e}")
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Google credential"
-        )
-
-    email = idinfo.get("email")
-    if not email or not idinfo.get("email_verified"):
-        from fastapi import HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google account email not verified"
-        )
-
-    first_name = idinfo.get("given_name", "")
-    last_name = idinfo.get("family_name", "")
-    avatar_url = idinfo.get("picture", "")
-
-    auth_service = AuthService(db)
-    ip_address = request.client.host if request.client else None
-    user_agent = request.headers.get("User-Agent")
-
-    # Check if user already exists
-    from sqlalchemy import select
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-
-    if user:
-        # Existing user — update avatar if missing and create session
-        if avatar_url and not user.avatar_url:
-            user.avatar_url = avatar_url
-        user.is_sso_user = True
-        tokens = await auth_service._create_session(user, ip_address, user_agent)
-        user.last_login = __import__("datetime").datetime.utcnow()
-        await db.commit()
-        logger.info(f"Google login: existing user {email}")
-    else:
-        # New user — register with Google info
-        from app.models.organization import Organization
-        from app.models.user import UserRole
-        from app.core.security import generate_uuid
-
-        org = Organization(
-            id=generate_uuid(),
-            name=f"{first_name}'s Workspace",
-            slug=generate_uuid()[:8],
-        )
-        db.add(org)
-
-        user = User(
-            id=generate_uuid(),
-            org_id=org.id,
-            email=email,
-            password_hash=None,
-            is_sso_user=True,
-            first_name=first_name or email.split("@")[0],
-            last_name=last_name or "",
-            role=UserRole.ORG_ADMIN,
-            avatar_url=avatar_url,
-            is_active=True,
-            is_email_verified=True,
-        )
-        db.add(user)
-        await db.flush()
-
-        tokens = await auth_service._create_session(user, ip_address, user_agent)
-        user.last_login = __import__("datetime").datetime.utcnow()
-        await db.commit()
-        logger.info(f"Google login: new user created {email}")
-
-    return {
-        "message": "Login successful",
-        "user": UserResponse.model_validate(user),
-        "tokens": tokens
+        "tokens": supabase_session,
     }
 
 
 @router.post(
     "/refresh",
-    response_model=TokenResponse,
+    response_model=dict,
     summary="Refresh tokens",
-    description="Get new access token using refresh token"
+    description="Get new Supabase session tokens using refresh token",
 )
 async def refresh_token(
-    token_data: TokenRefresh,
-    request: Request,
-    db: AsyncSession = Depends(get_db)
+    token_data: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Refresh access token using refresh token.
+    Refresh access token using Supabase refresh token.
 
     - **refresh_token**: Valid refresh token from login
 
     Returns new access and refresh tokens.
     """
     auth_service = AuthService(db)
-
-    ip_address = request.client.host if request.client else None
-
     tokens = await auth_service.refresh_tokens(
         refresh_token=token_data.refresh_token,
-        ip_address=ip_address
     )
 
-    return tokens
+    return {
+        "message": "Tokens refreshed",
+        "tokens": tokens,
+    }
 
 
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Logout",
-    description="Logout current session"
+    description="Logout current session (frontend calls supabase.auth.signOut())",
 )
 async def logout(
-    request: Request,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Logout from current session.
 
-    Invalidates the current access token.
+    The frontend is responsible for calling supabase.auth.signOut().
+    This endpoint logs the event server-side.
     """
     auth_service = AuthService(db)
-
-    # Get token from header
-    auth_header = request.headers.get("Authorization", "")
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-
-    await auth_service.logout(current_user.id, token)
-
-
-@router.post(
-    "/logout-all",
-    summary="Logout all sessions",
-    description="Logout from all active sessions"
-)
-async def logout_all(
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Logout from all active sessions.
-
-    Invalidates all tokens for the current user.
-    """
-    auth_service = AuthService(db)
-    count = await auth_service.logout_all(current_user.id)
-
-    return {
-        "message": f"Logged out from {count} session(s)"
-    }
+    await auth_service.logout(current_user.id)
 
 
 # ==================== Password Management ====================
@@ -327,82 +171,50 @@ async def logout_all(
 @router.post(
     "/forgot-password",
     summary="Request password reset",
-    description="Send password reset email"
+    description="Send password reset email via Supabase",
 )
 async def forgot_password(
     data: PasswordReset,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
-    Request password reset token.
+    Request password reset.
 
     - **email**: User's email address
 
-    Note: Always returns success to prevent email enumeration.
-    In production, sends email with reset link.
+    Supabase sends a reset link to the user's email.
+    Always returns success to prevent email enumeration.
     """
     auth_service = AuthService(db)
-    token = await auth_service.request_password_reset(data.email)
+    await auth_service.request_password_reset(data.email)
 
-    response = {"message": "If the email exists, a reset link has been sent"}
-
-    # Only include token in development for testing purposes
-    # NEVER expose in production - tokens should only be sent via email
-    if settings.is_development and settings.DEBUG:
-        response["debug_token"] = token
-
-    return response
-
-
-@router.post(
-    "/reset-password",
-    summary="Reset password",
-    description="Reset password using reset token"
-)
-async def reset_password(
-    data: PasswordResetConfirm,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Reset password using reset token.
-
-    - **token**: Password reset token from email
-    - **new_password**: New strong password
-    """
-    auth_service = AuthService(db)
-    await auth_service.reset_password(data.token, data.new_password)
-
-    return {
-        "message": "Password reset successful. Please login with your new password."
-    }
+    return {"message": "If the email exists, a reset link has been sent"}
 
 
 @router.post(
     "/change-password",
     summary="Change password",
-    description="Change password for authenticated user"
+    description="Change password for authenticated user via Supabase",
 )
 async def change_password(
     data: PasswordChange,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Change password for current user.
 
-    - **current_password**: Current password
     - **new_password**: New strong password
+
+    Uses Supabase admin API to update the password.
     """
     auth_service = AuthService(db)
     await auth_service.change_password(
         user_id=current_user.id,
-        current_password=data.current_password,
-        new_password=data.new_password
+        new_password=data.new_password,
     )
 
-    return {
-        "message": "Password changed successfully"
-    }
+    return {"message": "Password changed successfully"}
 
 
 # ==================== Current User ====================
@@ -411,18 +223,17 @@ async def change_password(
     "/me",
     response_model=CurrentUserResponse,
     summary="Get current user",
-    description="Get details of authenticated user"
+    description="Get details of authenticated user",
 )
 async def get_current_user_info(
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get current authenticated user's profile.
 
     Returns user details including organization and permissions.
     """
-    # Get organization info
     from app.models.organization import Organization
     from sqlalchemy import select
 
@@ -431,8 +242,6 @@ async def get_current_user_info(
     )
     org = result.scalar_one_or_none()
 
-    # Build permissions list based on role
-    # This will be expanded in Phase 3 (RBAC)
     permissions = _get_role_permissions(current_user.role.value)
 
     return CurrentUserResponse(
@@ -456,7 +265,7 @@ async def get_current_user_info(
         updated_at=current_user.updated_at,
         organization_name=org.name if org else "",
         organization_plan=org.plan.value if org else "",
-        permissions=permissions
+        permissions=permissions,
     )
 
 
@@ -466,10 +275,10 @@ async def get_current_user_info(
     "/consent",
     response_model=ConsentResponse,
     summary="Get consent status",
-    description="Get current user's consent settings"
+    description="Get current user's consent settings",
 )
 async def get_consent(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ):
     """Get current user's GDPR consent status."""
     return ConsentResponse(**current_user.consent)
@@ -479,12 +288,12 @@ async def get_consent(
     "/consent",
     response_model=ConsentResponse,
     summary="Update consent",
-    description="Update user consent settings"
+    description="Update user consent settings",
 )
 async def update_consent(
     consent_data: ConsentUpdate,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Update GDPR consent settings.
@@ -500,86 +309,42 @@ async def update_consent(
     return ConsentResponse(**user.consent)
 
 
-# ==================== Session Management ====================
-
-@router.get(
-    "/sessions",
-    response_model=SessionListResponse,
-    summary="List sessions",
-    description="List all active sessions for current user"
-)
-async def list_sessions(
-    request: Request,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get all active sessions for current user."""
-    auth_service = AuthService(db)
-
-    # Get current token
-    auth_header = request.headers.get("Authorization", "")
-    current_token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-
-    sessions = await auth_service.get_user_sessions(current_user.id, current_token)
-
-    # Mark current session
-    from app.core.security import hash_token
-    current_hash = hash_token(current_token) if current_token else ""
-
-    session_responses = []
-    for session in sessions:
-        session_responses.append(SessionResponse(
-            id=session.id,
-            device_info=session.device_info,
-            ip_address=session.ip_address,
-            last_activity=session.last_activity,
-            created_at=session.created_at,
-            is_current=session.token_hash == current_hash
-        ))
-
-    return SessionListResponse(
-        sessions=session_responses,
-        total=len(session_responses)
-    )
-
-
 # ==================== Helper Functions ====================
 
 def _get_role_permissions(role: str) -> list[str]:
     """Get list of permissions for a role."""
-    # Basic permission mapping - will be expanded in Phase 3
     permissions_map = {
         "super_admin": [
             "users:read", "users:write", "users:delete",
             "organizations:read", "organizations:write",
             "tasks:read", "tasks:write", "tasks:delete",
             "reports:read", "reports:write",
-            "admin:access"
+            "admin:access",
         ],
         "org_admin": [
             "users:read", "users:write",
             "organizations:read", "organizations:write",
             "tasks:read", "tasks:write", "tasks:delete",
-            "reports:read", "reports:write"
+            "reports:read", "reports:write",
         ],
         "manager": [
             "users:read",
             "tasks:read", "tasks:write",
-            "reports:read"
+            "reports:read",
         ],
         "team_lead": [
             "users:read",
             "tasks:read", "tasks:write",
-            "reports:read"
+            "reports:read",
         ],
         "employee": [
             "tasks:read", "tasks:write_own",
-            "reports:read_own"
+            "reports:read_own",
         ],
         "viewer": [
             "tasks:read",
-            "reports:read"
-        ]
+            "reports:read",
+        ],
     }
 
     return permissions_map.get(role, [])

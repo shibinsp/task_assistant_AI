@@ -5,7 +5,7 @@ Send email notifications, digests, and handle incoming emails.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..base import AgentCapability, EventType
@@ -178,7 +178,7 @@ class EmailAgent(BaseIntegrationAgent):
         """Send daily digest email"""
         data = {
             "user_name": user_name,
-            "date": datetime.utcnow().strftime("%B %d, %Y"),
+            "date": datetime.now(timezone.utc).strftime("%B %d, %Y"),
             "tasks": tasks,
             "stats": stats,
         }
@@ -204,7 +204,7 @@ class EmailAgent(BaseIntegrationAgent):
             "employee_name": employee_name,
             "task": task,
             "reason": reason,
-            "escalated_at": datetime.utcnow().isoformat(),
+            "escalated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         return await self.send_notification(

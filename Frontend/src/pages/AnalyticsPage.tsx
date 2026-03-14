@@ -64,20 +64,27 @@ export default function AnalyticsPage() {
     queryFn: () => dashboardService.getTeamProductivity({ period: timeRange }),
   });
 
+  // Extract numeric metrics with proper typing (index signature returns unknown)
+  const completedTasks = Number(metrics?.completed_tasks ?? 0);
+  const completionRate = Number(metrics?.completion_rate ?? 0);
+  const avgCompletionHours = Number(metrics?.avg_completion_hours ?? 0);
+  const totalTasks = Number(metrics?.total_tasks ?? 0);
+  const inProgressTasks = Number(metrics?.in_progress_tasks ?? 0);
+
   // Build stats cards from real metrics
   const dynamicStatsCards = [
     {
       title: 'Tasks Completed',
-      value: metrics?.completed_tasks?.toLocaleString() ?? '0',
-      change: `${Math.round(metrics?.completion_rate ?? 0)}%`,
+      value: completedTasks.toLocaleString(),
+      change: `${Math.round(completionRate)}%`,
       trend: 'up' as const,
       icon: CheckCircle2,
       color: 'from-emerald-500 to-teal-500',
     },
     {
       title: 'Avg. Completion Time',
-      value: metrics?.avg_completion_hours
-        ? `${Math.round(metrics.avg_completion_hours * 10) / 10} hrs`
+      value: avgCompletionHours
+        ? `${Math.round(avgCompletionHours * 10) / 10} hrs`
         : 'N/A',
       change: '',
       trend: 'down' as const,
@@ -94,7 +101,7 @@ export default function AnalyticsPage() {
     },
     {
       title: 'Sprint Progress',
-      value: `${Math.round(metrics?.completion_rate ?? 0)}%`,
+      value: `${Math.round(completionRate)}%`,
       change: 'On track',
       trend: 'up' as const,
       icon: Target,
@@ -111,9 +118,9 @@ export default function AnalyticsPage() {
 
   // Derive task distribution from real metrics
   const taskDistribution = metrics ? [
-    { name: 'Completed', value: metrics.completed_tasks ?? 0, color: '#10b981' },
-    { name: 'In Progress', value: metrics.in_progress_tasks ?? 0, color: '#3b82f6' },
-    { name: 'Pending', value: (metrics.total_tasks ?? 0) - (metrics.completed_tasks ?? 0) - (metrics.in_progress_tasks ?? 0), color: '#f59e0b' },
+    { name: 'Completed', value: completedTasks, color: '#10b981' },
+    { name: 'In Progress', value: inProgressTasks, color: '#3b82f6' },
+    { name: 'Pending', value: totalTasks - completedTasks - inProgressTasks, color: '#f59e0b' },
   ].filter(d => d.value > 0) : [];
 
   // Map team workload to performance format

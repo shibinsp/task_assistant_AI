@@ -10,11 +10,16 @@ from datetime import datetime, timedelta
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
+from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import select
+
 from app.main import app
 from app.database import Base, get_db
 from app.models.user import User, UserRole
 from app.models.organization import Organization, PlanTier
-from app.core.security import hash_password, create_access_token
+from app.core.security import hash_password, create_access_token, decode_token
+from app.api.v1.dependencies import get_current_user
 from app.utils.helpers import generate_uuid
 
 # Test database URL
@@ -65,12 +70,45 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture(scope="function")
 async def client(test_session) -> AsyncGenerator[AsyncClient, None]:
-    """Create test HTTP client with database override."""
+    """Create test HTTP client with database and auth overrides."""
 
     async def override_get_db():
         yield test_session
 
+    # OAuth2 scheme for extracting the Bearer token from the request
+    _oauth2_scheme = OAuth2PasswordBearer(
+        tokenUrl="/api/v1/auth/login",
+        auto_error=False,
+    )
+
+    async def override_get_current_user(
+        token: str | None = Depends(_oauth2_scheme),
+    ) -> User | None:
+        """
+        Test override for get_current_user.
+
+        Decodes the legacy HS256 test token (created by create_access_token)
+        and looks up the user by ID in the test database, bypassing Supabase
+        JWT verification entirely.
+        """
+        if not token:
+            return None
+
+        payload = decode_token(token)
+        if not payload:
+            return None
+
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+
+        result = await test_session.execute(
+            select(User).where(User.id == user_id)
+        )
+        return result.scalar_one_or_none()
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

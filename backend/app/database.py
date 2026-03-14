@@ -1,41 +1,69 @@
 """
 TaskPulse - AI Assistant - Database Configuration
-Database setup with SQLAlchemy async support (SQLite & PostgreSQL)
+PostgreSQL (Supabase) database setup with SQLAlchemy async support
 """
 
+import enum as _enum
 import logging
-from datetime import datetime
-from typing import AsyncGenerator
+import ssl
 import uuid
+from typing import AsyncGenerator
 
-from sqlalchemy import Column, DateTime, String, event
+from sqlalchemy import Column, DateTime, JSON, String, func
+from sqlalchemy import Enum as _SQLAlchemyEnum
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, declared_attr
+
+
+# Cross-database compatible JSONB: uses JSONB on PostgreSQL, JSON on SQLite
+CompatibleJSONB = JSONB().with_variant(JSON(), "sqlite")
+
+# Cross-database compatible UUID: uses native UUID on PostgreSQL, String on SQLite
+CompatibleUUID = PG_UUID(as_uuid=True).with_variant(String(36), "sqlite")
+
+
+class Enum(_SQLAlchemyEnum):
+    """
+    Custom SQLAlchemy Enum that uses Python enum *values* (not names) for DB storage.
+
+    PostgreSQL enum types were created with lowercase values (e.g. 'super_admin'),
+    matching the Python enum values. SQLAlchemy's default Enum uses enum names
+    (e.g. 'SUPER_ADMIN'), causing a mismatch. This custom class fixes that.
+    """
+
+    def __init__(self, *enums, **kw):
+        if (
+            len(enums) == 1
+            and isinstance(enums[0], type)
+            and issubclass(enums[0], _enum.Enum)
+        ):
+            kw.setdefault("values_callable", lambda x: [e.value for e in x])
+        super().__init__(*enums, **kw)
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+# SSL context for Supabase connection pooler (uses self-signed certs)
+_ssl_context = ssl.create_default_context()
+_ssl_context.check_hostname = False
+_ssl_context.verify_mode = ssl.CERT_NONE
 
-# Build engine kwargs based on database type
-_engine_kwargs: dict = {
-    "echo": settings.DATABASE_ECHO,
-    "future": True,
-}
-
-if _is_sqlite:
-    _engine_kwargs["connect_args"] = {"check_same_thread": False}
-else:
-    # PostgreSQL pool settings for production
-    _engine_kwargs["pool_size"] = 10
-    _engine_kwargs["max_overflow"] = 20
-    _engine_kwargs["pool_pre_ping"] = True
-    _engine_kwargs["pool_recycle"] = 300
-
-logger.info(f"Database backend: {'SQLite' if _is_sqlite else 'PostgreSQL'}")
-
-engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
+# Create async engine for PostgreSQL (Supabase)
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DATABASE_ECHO,
+    future=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True,
+    connect_args=(
+        {"ssl": _ssl_context, "statement_cache_size": 0}
+        if "asyncpg" in settings.DATABASE_URL
+        else {}
+    ),
+)
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(
@@ -62,46 +90,36 @@ class Base(DeclarativeBase):
             ['_' + c.lower() if c.isupper() else c for c in name]
         ).lstrip('_') + 's'
 
-    # Common columns for all models
+    # Common columns for all models — using cross-DB compatible UUID
     id = Column(
-        String(36),
+        CompatibleUUID,
         primary_key=True,
-        default=lambda: str(uuid.uuid4()),
+        default=uuid.uuid4,
         index=True
     )
     created_at = Column(
-        DateTime,
-        default=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
         nullable=False,
         index=True
     )
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False
     )
 
     def to_dict(self) -> dict:
         """Convert model to dictionary."""
-        return {
-            column.name: getattr(self, column.name)
-            for column in self.__table__.columns
-        }
-
-
-# Enable foreign key support for SQLite (no-op for PostgreSQL)
-if _is_sqlite:
-    @event.listens_for(engine.sync_engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        """Enable foreign keys and other optimizations for SQLite."""
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA cache_size=10000")
-        cursor.execute("PRAGMA temp_store=MEMORY")
-        cursor.close()
+        result = {}
+        for column in self.__table__.columns:
+            value = getattr(self, column.name)
+            # Convert UUID to string for JSON serialization
+            if isinstance(value, uuid.UUID):
+                value = str(value)
+            result[column.name] = value
+        return result
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -134,7 +152,7 @@ async def init_db() -> None:
         # Import ALL models to ensure they're registered with Base.metadata
         from app.models import (  # noqa: F401
             # Phase 2 - Auth & Users
-            Organization, User, Session,
+            Organization, User,
             # Phase 4 - Tasks
             Task, TaskDependency, TaskHistory, TaskComment,
             # Phase 6 - Check-ins

@@ -3,13 +3,12 @@ TaskPulse - AI Assistant - Knowledge Base Model
 Document storage for RAG-powered AI assistance
 """
 
-from sqlalchemy import Column, String, Enum, Text, Boolean, ForeignKey, Integer, Float, DateTime
+from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
 from sqlalchemy.orm import relationship
+from pgvector.sqlalchemy import Vector
 import enum
-from datetime import datetime
-from typing import Optional
 
-from app.database import Base
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class DocumentSource(str, enum.Enum):
@@ -58,7 +57,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     org_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -85,15 +84,17 @@ class Document(Base):
     file_name = Column(String(500), nullable=True)
     file_type = Column(String(50), nullable=True)  # pdf, md, txt, etc.
     file_size = Column(Integer, nullable=True)
+    storage_path = Column(String(500), nullable=True)
+    storage_url = Column(String(2000), nullable=True)
     language = Column(String(50), default="en")
 
     # Access control
     is_public = Column(Boolean, default=False)  # Visible to all org members
-    team_ids_json = Column(Text, default="[]")  # Restricted to these teams
+    team_ids = Column(CompatibleJSONB, default=[])  # Restricted to these teams
 
     # Categorization
-    tags_json = Column(Text, default="[]")
-    categories_json = Column(Text, default="[]")
+    tags = Column(CompatibleJSONB, default=[])
+    categories = Column(CompatibleJSONB, default=[])
 
     # Stats
     view_count = Column(Integer, default=0)
@@ -111,45 +112,6 @@ class Document(Base):
     def __repr__(self) -> str:
         return f"<Document(id={self.id}, title={self.title[:30]}...)>"
 
-    @property
-    def tags(self) -> list:
-        import json
-        try:
-            return json.loads(self.tags_json or "[]")
-        except:
-            return []
-
-    @tags.setter
-    def tags(self, value: list):
-        import json
-        self.tags_json = json.dumps(value)
-
-    @property
-    def categories(self) -> list:
-        import json
-        try:
-            return json.loads(self.categories_json or "[]")
-        except:
-            return []
-
-    @categories.setter
-    def categories(self, value: list):
-        import json
-        self.categories_json = json.dumps(value)
-
-    @property
-    def team_ids(self) -> list:
-        import json
-        try:
-            return json.loads(self.team_ids_json or "[]")
-        except:
-            return []
-
-    @team_ids.setter
-    def team_ids(self, value: list):
-        import json
-        self.team_ids_json = json.dumps(value)
-
 
 class DocumentChunk(Base):
     """
@@ -160,7 +122,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     document_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -172,46 +134,19 @@ class DocumentChunk(Base):
     start_char = Column(Integer, nullable=True)  # Start position in original
     end_char = Column(Integer, nullable=True)  # End position in original
 
-    # Embedding (stored as JSON string for SQLite compatibility)
-    # In production, use pgvector or similar
-    embedding_json = Column(Text, nullable=True)
+    # Embedding (pgvector native column)
+    embedding = Column(Vector(1536), nullable=True)
     embedding_model = Column(String(100), nullable=True)
 
     # Metadata
     token_count = Column(Integer, nullable=True)
-    metadata_json = Column(Text, default="{}")
+    chunk_metadata = Column(CompatibleJSONB, default={})
 
     # Relationships
     document = relationship("Document", back_populates="chunks")
 
     def __repr__(self) -> str:
         return f"<DocumentChunk(doc={self.document_id}, index={self.chunk_index})>"
-
-    @property
-    def embedding(self) -> Optional[list]:
-        import json
-        try:
-            return json.loads(self.embedding_json) if self.embedding_json else None
-        except:
-            return None
-
-    @embedding.setter
-    def embedding(self, value: list):
-        import json
-        self.embedding_json = json.dumps(value) if value else None
-
-    @property
-    def chunk_metadata(self) -> dict:
-        import json
-        try:
-            return json.loads(self.metadata_json or "{}")
-        except:
-            return {}
-
-    @chunk_metadata.setter
-    def chunk_metadata(self, value: dict):
-        import json
-        self.metadata_json = json.dumps(value)
 
 
 class UnblockSession(Base):
@@ -223,25 +158,25 @@ class UnblockSession(Base):
     __tablename__ = "unblock_sessions"
 
     org_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     task_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     checkin_id = Column(
-        String(36),
+        CompatibleUUID,
         ForeignKey("checkins.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -254,12 +189,12 @@ class UnblockSession(Base):
     # Response
     response = Column(Text, nullable=True)
     confidence = Column(Float, nullable=True)
-    sources_json = Column(Text, default="[]")  # Document IDs used
+    sources = Column(CompatibleJSONB, default=[])  # Document IDs used
 
     # Escalation
     escalation_recommended = Column(Boolean, default=False)
     escalated = Column(Boolean, default=False)
-    escalated_to = Column(String(36), ForeignKey("users.id"), nullable=True)
+    escalated_to = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
 
     # Feedback
     was_helpful = Column(Boolean, nullable=True)
@@ -275,16 +210,3 @@ class UnblockSession(Base):
 
     def __repr__(self) -> str:
         return f"<UnblockSession(id={self.id}, user={self.user_id})>"
-
-    @property
-    def sources(self) -> list:
-        import json
-        try:
-            return json.loads(self.sources_json or "[]")
-        except:
-            return []
-
-    @sources.setter
-    def sources(self, value: list):
-        import json
-        self.sources_json = json.dumps(value)

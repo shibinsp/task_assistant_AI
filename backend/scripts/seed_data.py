@@ -6,7 +6,7 @@ Populates the database with realistic demo data for testing all features
 import asyncio
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -38,7 +38,7 @@ from app.core.security import hash_password
 from app.utils.helpers import generate_uuid
 
 
-NOW = datetime.utcnow()
+NOW = datetime.now(timezone.utc)
 
 
 def days_ago(d: int, h: int = 0) -> datetime:

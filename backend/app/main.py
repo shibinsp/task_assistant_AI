@@ -5,7 +5,7 @@ The Intelligent Task Completion Engine
 
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -158,7 +158,7 @@ async def root():
         "description": settings.APP_DESCRIPTION,
         "status": "running",
         "docs": "/docs" if _enable_docs else "disabled",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -193,7 +193,7 @@ async def health_check():
         status_code=200 if is_healthy else 503,
         content={
             "status": "healthy" if is_healthy else "unhealthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "version": settings.APP_VERSION,
             "components": {
                 "database": {
@@ -220,7 +220,7 @@ async def readiness_check():
     Readiness check for Kubernetes/container orchestration.
     Returns 200 only if the application is fully ready.
     """
-    return {"status": "ready", "timestamp": datetime.utcnow().isoformat()}
+    return {"status": "ready", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # ==================== API Version Info ====================

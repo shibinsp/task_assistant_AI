@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import datetime
 
 from app.models.skill import SkillCategory, SkillTrend, GapType
+from app.schemas._types import StrUUID
 
 
 # ==================== Skill Catalog ====================
@@ -38,8 +39,8 @@ class SkillUpdate(BaseModel):
 
 class SkillResponse(BaseModel):
     """Skill response schema."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     name: str
     description: Optional[str]
     category: SkillCategory
@@ -90,9 +91,9 @@ class UserSkillUpdate(BaseModel):
 
 class UserSkillResponse(BaseModel):
     """User skill response."""
-    id: str
-    user_id: str
-    skill_id: str
+    id: StrUUID
+    user_id: StrUUID
+    skill_id: StrUUID
     skill_name: Optional[str] = None
     skill_category: Optional[SkillCategory] = None
     level: float
@@ -114,7 +115,7 @@ class UserSkillResponse(BaseModel):
 
 class SkillGraphNode(BaseModel):
     """Node in the skill graph."""
-    skill_id: str
+    skill_id: StrUUID
     skill_name: str
     category: SkillCategory
     level: float
@@ -131,7 +132,7 @@ class SkillGraphEdge(BaseModel):
 
 class SkillGraphResponse(BaseModel):
     """User's skill graph."""
-    user_id: str
+    user_id: StrUUID
     nodes: List[SkillGraphNode]
     edges: List[SkillGraphEdge]
     total_skills: int
@@ -143,7 +144,7 @@ class SkillGraphResponse(BaseModel):
 
 class SkillVelocityResponse(BaseModel):
     """User's skill velocity metrics."""
-    user_id: str
+    user_id: StrUUID
     period_days: int
     task_completion_velocity: Optional[float]
     quality_score: Optional[float]
@@ -159,7 +160,7 @@ class SkillVelocityResponse(BaseModel):
 
 class TeamSkillSummary(BaseModel):
     """Skill summary for a team."""
-    skill_id: str
+    skill_id: StrUUID
     skill_name: str
     category: SkillCategory
     team_average_level: float
@@ -170,7 +171,7 @@ class TeamSkillSummary(BaseModel):
 
 class TeamSkillComposition(BaseModel):
     """Team's skill composition."""
-    team_id: str
+    team_id: StrUUID
     total_members: int
     skills: List[TeamSkillSummary]
     strongest_skills: List[str]
@@ -182,9 +183,9 @@ class TeamSkillComposition(BaseModel):
 
 class SkillGapResponse(BaseModel):
     """Identified skill gap."""
-    id: str
-    user_id: str
-    skill_id: str
+    id: StrUUID
+    user_id: StrUUID
+    skill_id: StrUUID
     skill_name: Optional[str] = None
     gap_type: GapType
     current_level: Optional[float]
@@ -202,7 +203,7 @@ class SkillGapResponse(BaseModel):
 
 class SkillGapSummary(BaseModel):
     """Summary of skill gaps."""
-    user_id: str
+    user_id: StrUUID
     total_gaps: int
     critical_gaps: int
     growth_gaps: int
@@ -216,7 +217,7 @@ class LearningMilestone(BaseModel):
     """Milestone in learning path."""
     title: str
     description: Optional[str]
-    skill_id: Optional[str]
+    skill_id: Optional[StrUUID]
     target_level: Optional[float]
     completed: bool = False
     completed_at: Optional[datetime] = None
@@ -233,8 +234,8 @@ class LearningPathCreate(BaseModel):
 
 class LearningPathResponse(BaseModel):
     """Learning path response."""
-    id: str
-    user_id: str
+    id: StrUUID
+    user_id: StrUUID
     title: str
     description: Optional[str]
     target_role: Optional[str]
@@ -256,7 +257,7 @@ class LearningPathResponse(BaseModel):
 
 class SelfSufficiencyMetrics(BaseModel):
     """Self-sufficiency metrics for a user."""
-    user_id: str
+    user_id: StrUUID
     overall_score: float  # 0-1
     by_skill_category: dict  # category -> score
     blockers_self_resolved: int
@@ -269,7 +270,7 @@ class SelfSufficiencyMetrics(BaseModel):
 
 class PeerBenchmark(BaseModel):
     """Anonymized peer benchmarking."""
-    skill_id: str
+    skill_id: StrUUID
     skill_name: str
     user_level: float
     peer_average: float

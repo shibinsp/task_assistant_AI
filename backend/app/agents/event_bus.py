@@ -9,7 +9,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
 from uuid import uuid4
@@ -316,7 +316,7 @@ class AgentEventBus:
                         raise
 
             queued.status = EventStatus.COMPLETED
-            queued.processed_at = datetime.utcnow()
+            queued.processed_at = datetime.now(timezone.utc)
             self._events_processed += 1
 
         except Exception as e:

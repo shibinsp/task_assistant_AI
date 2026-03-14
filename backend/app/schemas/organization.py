@@ -8,6 +8,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.organization import PlanTier
+from app.schemas._types import StrUUID
 
 
 # ==================== Base Schemas ====================
@@ -57,7 +58,7 @@ class OrganizationPlanUpdate(BaseModel):
 
 class OrganizationResponse(OrganizationBase):
     """Schema for organization in API responses."""
-    id: str
+    id: StrUUID
     slug: str
     plan: PlanTier
     is_active: bool

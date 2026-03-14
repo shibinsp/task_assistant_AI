@@ -7,7 +7,7 @@ Provides P25/P50/P90 estimates, risk analysis, and mitigation suggestions.
 
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from .base import (
@@ -150,7 +150,7 @@ class PredictorAgent(BaseAgent):
         p90_hours = adjusted_remaining * 1.5  # Pessimistic
 
         # Convert to dates
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         work_hours_per_day = 6  # Assume 6 productive hours per day
 
         prediction = {
@@ -265,7 +265,7 @@ class PredictorAgent(BaseAgent):
             return True
 
         due = task.due_date if isinstance(task.due_date, datetime) else datetime.fromisoformat(str(task.due_date))
-        hours_until_due = (due - datetime.utcnow()).total_seconds() / 3600
+        hours_until_due = (due - datetime.now(timezone.utc)).total_seconds() / 3600
         work_hours = hours_until_due * (6/24)  # 6 productive hours per day
 
         return p50_hours <= work_hours
@@ -294,7 +294,7 @@ class PredictorAgent(BaseAgent):
 
         if task.due_date:
             due = task.due_date if isinstance(task.due_date, datetime) else datetime.fromisoformat(str(task.due_date))
-            days_until_due = (due - datetime.utcnow()).days
+            days_until_due = (due - datetime.now(timezone.utc)).days
 
             if days_until_due < 0:
                 risks.append({

@@ -7,6 +7,8 @@ from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
 
+from app.schemas._types import StrUUID
+
 
 # ==================== Workforce Score Schemas ====================
 
@@ -21,9 +23,9 @@ class ScoreComponent(BaseModel):
 
 class WorkforceScoreResponse(BaseModel):
     """Schema for workforce score in API responses."""
-    id: str
-    user_id: str
-    org_id: str
+    id: StrUUID
+    user_id: StrUUID
+    org_id: StrUUID
 
     # Overall score
     overall_score: float = Field(ge=0, le=100)
@@ -76,7 +78,7 @@ class AttritionRiskFactor(BaseModel):
 
 class AttritionRiskResponse(BaseModel):
     """Response for attrition risk analysis."""
-    user_id: str
+    user_id: StrUUID
     user_name: str
 
     # Risk assessment
@@ -113,7 +115,7 @@ class BurnoutIndicator(BaseModel):
 
 class BurnoutRiskResponse(BaseModel):
     """Response for burnout risk analysis."""
-    user_id: str
+    user_id: StrUUID
     user_name: str
 
     # Risk assessment
@@ -145,10 +147,10 @@ class BurnoutRiskListResponse(BaseModel):
 
 class ManagerEffectivenessResponse(BaseModel):
     """Schema for manager effectiveness in API responses."""
-    id: str
-    manager_id: str
+    id: StrUUID
+    manager_id: StrUUID
     manager_name: str
-    org_id: str
+    org_id: StrUUID
 
     # Team metrics
     team_size: int
@@ -193,8 +195,8 @@ class OrgHealthMetric(BaseModel):
 
 class OrgHealthSnapshotResponse(BaseModel):
     """Schema for organization health snapshot in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
 
     # Overall health
     health_score: float = Field(ge=0, le=100)
@@ -221,7 +223,7 @@ class OrgHealthSnapshotResponse(BaseModel):
 
 class OrgHealthTrendResponse(BaseModel):
     """Response for organization health trend."""
-    org_id: str
+    org_id: StrUUID
 
     # Time series
     snapshots: List[OrgHealthSnapshotResponse]
@@ -253,8 +255,8 @@ class RestructuringImpact(BaseModel):
 
 class RestructuringScenarioResponse(BaseModel):
     """Schema for restructuring scenario in API responses."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
 
     # Scenario
     scenario_type: str
@@ -301,7 +303,7 @@ class HiringRecommendation(BaseModel):
 
 class HiringPlanResponse(BaseModel):
     """Response for hiring plan generation."""
-    org_id: str
+    org_id: StrUUID
 
     # Summary
     total_positions: int

@@ -487,16 +487,6 @@ function DocumentFormDialog({
   const [docType, setDocType] = useState<ApiDocumentType>(document?.doc_type ?? 'guide');
   const [tags, setTags] = useState(document?.tags.join(', ') ?? '');
 
-  // Reset form when document or open changes
-  const prevDocRef = useRef(document);
-  if (document !== prevDocRef.current) {
-    prevDocRef.current = document;
-    setTitle(document?.title ?? '');
-    setDescription(document?.description ?? '');
-    setContent(document?.content ?? '');
-    setDocType(document?.doc_type ?? 'guide');
-    setTags(document?.tags.join(', ') ?? '');
-  }
 
   const createMutation = useMutation({
     mutationFn: (payload: ApiDocumentCreate) => aiService.createDocument(payload),
@@ -916,6 +906,7 @@ export default function KnowledgeBasePage() {
 
       {/* Dialogs */}
       <DocumentFormDialog
+        key={selectedDocument?.id ?? 'new'}
         document={selectedDocument}
         open={formDialogOpen}
         onOpenChange={setFormDialogOpen}

@@ -351,7 +351,7 @@ function WorkforceScoresTab() {
     }
   }
 
-  function SortIcon({ col }: { col: typeof sortBy }) {
+  function renderSortIcon(col: typeof sortBy) {
     if (sortBy !== col) return null;
     return sortDir === 'desc' ? (
       <ChevronDown className="w-3 h-3 ml-1 inline" />
@@ -386,35 +386,35 @@ function WorkforceScoresTab() {
                 onClick={() => handleSort('overall_score')}
               >
                 Overall Score
-                <SortIcon col="overall_score" />
+                {renderSortIcon("overall_score")}
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort('velocity_score')}
               >
                 Productivity
-                <SortIcon col="velocity_score" />
+                {renderSortIcon("velocity_score")}
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort('quality_score')}
               >
                 Quality
-                <SortIcon col="quality_score" />
+                {renderSortIcon("quality_score")}
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort('collaboration_score')}
               >
                 Collaboration
-                <SortIcon col="collaboration_score" />
+                {renderSortIcon("collaboration_score")}
               </TableHead>
               <TableHead
                 className="cursor-pointer select-none"
                 onClick={() => handleSort('learning_score')}
               >
                 Growth
-                <SortIcon col="learning_score" />
+                {renderSortIcon("learning_score")}
               </TableHead>
             </TableRow>
           </TableHeader>

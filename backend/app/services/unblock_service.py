@@ -4,7 +4,7 @@ RAG-powered AI assistance for unblocking tasks
 """
 
 from typing import Optional, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,7 +95,7 @@ class UnblockService:
                 self.db.add(chunk)
 
             doc.status = DocumentStatus.INDEXED
-            doc.processed_at = datetime.utcnow()
+            doc.processed_at = datetime.now(timezone.utc)
 
         except Exception as e:
             doc.status = DocumentStatus.FAILED
@@ -234,10 +234,16 @@ class UnblockService:
         doc_id: str,
         org_id: str
     ) -> bool:
-        """Delete a document."""
+        """Delete a document and its storage file."""
         doc = await self.get_document(doc_id, org_id)
         if not doc:
             raise NotFoundException("Document", doc_id)
+
+        # Delete file from Supabase Storage if it was uploaded
+        if doc.storage_path:
+            from app.services.storage_service import StorageService
+            storage = StorageService()
+            await storage.delete_file(doc.storage_path)
 
         await self.db.delete(doc)
         await self.db.flush()
@@ -407,7 +413,7 @@ class UnblockService:
 
         session.was_helpful = feedback.was_helpful
         session.feedback_text = feedback.feedback_text
-        session.feedback_at = datetime.utcnow()
+        session.feedback_at = datetime.now(timezone.utc)
 
         # Update document helpfulness counts
         if session.sources:

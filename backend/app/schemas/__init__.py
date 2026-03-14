@@ -8,6 +8,9 @@ from pydantic import BaseModel
 from typing import Generic, TypeVar, Optional, List
 from datetime import datetime
 
+# Re-export StrUUID from _types for convenience
+from app.schemas._types import StrUUID  # noqa: F401
+
 T = TypeVar("T")
 
 
@@ -51,7 +54,7 @@ from app.schemas.user import (
     UserRegister, UserLogin, UserCreate, UserUpdate, UserAdminUpdate,
     TokenResponse, TokenRefresh, PasswordReset, PasswordResetConfirm,
     UserResponse, UserDetailResponse, UserListResponse, CurrentUserResponse,
-    ConsentUpdate, ConsentResponse, SessionResponse, SessionListResponse,
+    ConsentUpdate, ConsentResponse,
 )
 
 # Notification schemas

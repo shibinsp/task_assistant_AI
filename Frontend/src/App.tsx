@@ -24,6 +24,7 @@ import SkillsPage from './pages/SkillsPage';
 import PredictionsPage from './pages/PredictionsPage';
 import WorkforcePage from './pages/WorkforcePage';
 import IntegrationsPage from './pages/IntegrationsPage';
+import AuthCallback from './pages/AuthCallback';
 
 // Components
 import { Toaster } from '@/components/ui/sonner';
@@ -73,6 +74,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   useEffect(() => {
     initTheme();
+    const unsubscribe = useAuthStore.getState().initAuth();
+    return () => { unsubscribe(); };
   }, []);
 
   return (
@@ -85,6 +88,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Protected Routes */}
             <Route

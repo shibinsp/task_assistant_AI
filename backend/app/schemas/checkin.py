@@ -10,16 +10,17 @@ from datetime import datetime
 from app.models.checkin import (
     CheckInTrigger, CheckInStatus, ProgressIndicator
 )
+from app.schemas._types import StrUUID
 
 
 # ==================== Check-In Response Schemas ====================
 
 class CheckInResponse(BaseModel):
     """Check-in response schema."""
-    id: str
-    task_id: str
-    user_id: Optional[str]
-    org_id: str
+    id: StrUUID
+    task_id: StrUUID
+    user_id: Optional[StrUUID]
+    org_id: StrUUID
     cycle_number: int
     trigger: CheckInTrigger
     status: CheckInStatus
@@ -138,11 +139,11 @@ class CheckInConfigUpdate(BaseModel):
 
 class CheckInConfigResponse(CheckInConfigBase):
     """Check-in configuration response."""
-    id: str
-    org_id: str
-    team_id: Optional[str]
-    user_id: Optional[str]
-    task_id: Optional[str]
+    id: StrUUID
+    org_id: StrUUID
+    team_id: Optional[StrUUID]
+    user_id: Optional[StrUUID]
+    task_id: Optional[StrUUID]
     created_at: datetime
     updated_at: datetime
 
@@ -160,7 +161,7 @@ class EscalationRequest(BaseModel):
 
 class EscalationResponse(BaseModel):
     """Escalation result."""
-    checkin_id: str
+    checkin_id: StrUUID
     escalated_to: str
     escalated_at: datetime
     reason: str
@@ -185,7 +186,7 @@ class CheckInStatistics(BaseModel):
 
 class UserCheckInSummary(BaseModel):
     """User's check-in summary."""
-    user_id: str
+    user_id: StrUUID
     user_name: Optional[str]
     total_checkins: int
     response_rate: float
@@ -196,7 +197,7 @@ class UserCheckInSummary(BaseModel):
 
 class TeamCheckInSummary(BaseModel):
     """Team check-in summary."""
-    team_id: str
+    team_id: StrUUID
     total_members: int
     active_checkins: int
     response_rate: float
@@ -208,10 +209,10 @@ class TeamCheckInSummary(BaseModel):
 
 class CheckInFeedItem(BaseModel):
     """Item in the check-in feed for managers."""
-    checkin_id: str
-    task_id: str
+    checkin_id: StrUUID
+    task_id: StrUUID
     task_title: str
-    user_id: str
+    user_id: StrUUID
     user_name: str
     status: CheckInStatus
     progress_indicator: Optional[ProgressIndicator]

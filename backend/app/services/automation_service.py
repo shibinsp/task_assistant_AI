@@ -4,7 +4,7 @@ Pattern detection and automation management
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 import random
@@ -33,7 +33,7 @@ class AutomationService:
         """
         Detect repetitive task patterns that could be automated.
         """
-        cutoff = datetime.utcnow() - timedelta(days=time_window_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=time_window_days)
 
         # Get completed tasks in time window
         result = await self.db.execute(
@@ -305,9 +305,9 @@ class AutomationService:
 
         # Update timestamps
         if new_status == AgentStatus.SHADOW:
-            agent.shadow_started_at = datetime.utcnow()
+            agent.shadow_started_at = datetime.now(timezone.utc)
         elif new_status == AgentStatus.LIVE:
-            agent.live_started_at = datetime.utcnow()
+            agent.live_started_at = datetime.now(timezone.utc)
 
         await self.db.flush()
         return agent
@@ -343,7 +343,7 @@ class AutomationService:
             agent.total_runs = (agent.total_runs or 0) + 1
             if success:
                 agent.successful_runs = (agent.successful_runs or 0) + 1
-            agent.last_run_at = datetime.utcnow()
+            agent.last_run_at = datetime.now(timezone.utc)
             await self.db.flush()
 
         return run
@@ -383,7 +383,7 @@ class AutomationService:
         # Calculate shadow period
         shadow_days = 0
         if agent.shadow_started_at:
-            shadow_days = (datetime.utcnow() - agent.shadow_started_at).days
+            shadow_days = (datetime.now(timezone.utc) - agent.shadow_started_at).days
 
         # Determine readiness for live
         ready_for_live = match_rate >= 0.95 and shadow_days >= 14 and total_runs >= 20
@@ -417,7 +417,7 @@ class AutomationService:
         period_days: int = 30
     ) -> Dict[str, Any]:
         """Calculate ROI from automation."""
-        cutoff = datetime.utcnow() - timedelta(days=period_days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=period_days)
 
         # Get live agents
         result = await self.db.execute(

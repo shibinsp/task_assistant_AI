@@ -4,7 +4,7 @@ Handles in-app, email, and push notifications
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, and_
 
@@ -146,7 +146,7 @@ class NotificationService:
 
         if notification:
             notification.is_read = True
-            notification.read_at = datetime.utcnow()
+            notification.read_at = datetime.now(timezone.utc)
             await self.db.flush()
 
         return notification
@@ -160,7 +160,7 @@ class NotificationService:
                 Notification.org_id == org_id,
                 Notification.is_read == False
             )
-            .values(is_read=True, read_at=datetime.utcnow())
+            .values(is_read=True, read_at=datetime.now(timezone.utc))
         )
         await self.db.flush()
         return result.rowcount
@@ -374,7 +374,7 @@ class NotificationService:
         days_to_keep: int = 30
     ) -> int:
         """Clean up old read notifications."""
-        cutoff = datetime.utcnow() - timedelta(days=days_to_keep)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
 
         result = await self.db.execute(
             select(Notification).where(

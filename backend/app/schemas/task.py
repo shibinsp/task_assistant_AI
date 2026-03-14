@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import Enum
 
 from app.models.task import TaskStatus, TaskPriority, BlockerType
+from app.schemas._types import StrUUID
 
 
 # ==================== Base Schemas ====================
@@ -103,17 +104,17 @@ class TaskStatusUpdate(BaseModel):
 
 class TaskResponse(BaseModel):
     """Task response schema."""
-    id: str
-    org_id: str
+    id: StrUUID
+    org_id: StrUUID
     title: str
     description: Optional[str]
     goal: Optional[str]
     status: TaskStatus
     priority: TaskPriority
-    assigned_to: Optional[str]
-    created_by: str
-    team_id: Optional[str]
-    project_id: Optional[str]
+    assigned_to: Optional[StrUUID]
+    created_by: StrUUID
+    team_id: Optional[StrUUID]
+    project_id: Optional[StrUUID]
     deadline: Optional[datetime]
     estimated_hours: Optional[float]
     actual_hours: float
@@ -127,7 +128,7 @@ class TaskResponse(BaseModel):
     tools: List[str]
     tags: List[str]
     skills_required: List[str]
-    parent_task_id: Optional[str]
+    parent_task_id: Optional[StrUUID]
     sort_order: int
     is_draft: bool
     is_subtask: bool
@@ -194,9 +195,9 @@ class DependencyCreate(BaseModel):
 
 class DependencyResponse(BaseModel):
     """Task dependency response."""
-    id: str
-    task_id: str
-    depends_on_id: str
+    id: StrUUID
+    task_id: StrUUID
+    depends_on_id: StrUUID
     is_blocking: bool
     description: Optional[str]
     depends_on_title: Optional[str] = None
@@ -211,9 +212,9 @@ class DependencyResponse(BaseModel):
 
 class TaskHistoryResponse(BaseModel):
     """Task history entry response."""
-    id: str
-    task_id: str
-    user_id: Optional[str]
+    id: StrUUID
+    task_id: StrUUID
+    user_id: Optional[StrUUID]
     action: str
     field_name: Optional[str]
     old_value: Optional[str]
@@ -240,9 +241,9 @@ class CommentUpdate(BaseModel):
 
 class CommentResponse(BaseModel):
     """Task comment response."""
-    id: str
-    task_id: str
-    user_id: Optional[str]
+    id: StrUUID
+    task_id: StrUUID
+    user_id: Optional[StrUUID]
     content: str
     is_ai_generated: bool
     is_edited: bool
@@ -294,7 +295,7 @@ class SubtaskSuggestion(BaseModel):
 
 class TaskDecompositionResponse(BaseModel):
     """Response from AI task decomposition."""
-    task_id: str
+    task_id: StrUUID
     suggested_subtasks: List[SubtaskSuggestion]
     total_estimated_hours: float
     complexity_score: float

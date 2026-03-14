@@ -8,7 +8,7 @@ Provides common functionality for OAuth, webhooks, and sync operations.
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
@@ -58,7 +58,7 @@ class SyncResult:
     duration_ms: Optional[int] = None
 
     def complete(self):
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.duration_ms = int(
             (self.completed_at - self.started_at).total_seconds() * 1000
         )
@@ -203,7 +203,7 @@ class BaseIntegrationAgent(BaseAgent):
                 sync_result.items_synced += outbound_result.get("count", 0)
                 sync_result.items_updated += outbound_result.get("updated", 0)
 
-            self._last_sync = datetime.utcnow()
+            self._last_sync = datetime.now(timezone.utc)
             self.connection_status = IntegrationStatus.CONNECTED
 
         except Exception as e:

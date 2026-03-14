@@ -451,7 +451,7 @@ Return ONLY the category name, nothing else."""
             else:
                 try:
                     from dateutil import parser as date_parser
-                    from datetime import datetime
+                    from datetime import datetime, timezone
                     parsed_date = date_parser.parse(message, fuzzy=True, default=datetime.now())
                     pending["parsed"]["deadline"] = parsed_date.isoformat()
                 except Exception:
@@ -1092,7 +1092,7 @@ What would you like to do?"""
         try:
             from sqlalchemy import select, func, and_
             from app.models.task import Task, TaskStatus
-            from datetime import datetime, timedelta
+            from datetime import datetime, timedelta, timezone
 
             user_id = context.user.id
             org_id = context.organization.id if context.organization else None
@@ -1116,7 +1116,7 @@ What would you like to do?"""
                 status_counts[status.value] = result.scalar() or 0
 
             # Completed today
-            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             result = await context.db.execute(
                 select(func.count()).select_from(Task).where(
                     Task.assigned_to == user_id,

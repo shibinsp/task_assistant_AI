@@ -7,7 +7,7 @@ in the TaskPulse - AI Assistant multi-agent system.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from uuid import uuid4
@@ -128,7 +128,7 @@ class AgentResult:
 
     def complete(self, success: bool = True, error: Optional[str] = None):
         """Mark the result as complete"""
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now(timezone.utc)
         self.success = success
         self.error = error
         if self.started_at:
@@ -255,7 +255,7 @@ class BaseAgent(ABC):
     async def before_execute(self, context: "AgentContext") -> None:
         """Hook called before execute(). Override for setup logic."""
         self.status = AgentStatus.RUNNING
-        self._last_execution = datetime.utcnow()
+        self._last_execution = datetime.now(timezone.utc)
 
     async def after_execute(
         self,

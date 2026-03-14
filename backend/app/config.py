@@ -44,8 +44,15 @@ class Settings(BaseSettings):
     WORKERS: int = 1
 
     # ==================== Database ====================
-    DATABASE_URL: str = "sqlite+aiosqlite:///./taskpulse.db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/postgres"
     DATABASE_ECHO: bool = False  # Set to True to see SQL queries
+
+    # ==================== Supabase ====================
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_JWT_SECRET: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "documents"
 
     # ==================== Security ====================
     # SEC-001: No hardcoded secret. Random key generated per startup if env var is missing.
@@ -55,7 +62,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # ==================== CORS ====================
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:3000", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080", "http://127.0.0.1:3000", "http://127.0.0.1:5173", "https://relaxed-gates.vercel.app"]
     CORS_ALLOW_CREDENTIALS: bool = True
     # SEC-012: Restrict CORS methods and headers to only what's needed
     CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -103,7 +110,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
     ALLOWED_UPLOAD_EXTENSIONS: list[str] = [".pdf", ".doc", ".docx", ".txt", ".md"]
 
-    # ==================== Google OAuth ====================
+    # ==================== Google OAuth (legacy, now via Supabase) ====================
     GOOGLE_CLIENT_ID: str = ""
 
     # ==================== Email (for notifications) ====================
@@ -161,6 +168,13 @@ class Settings(BaseSettings):
                 )
             if self.RELOAD:
                 raise ValueError("RELOAD must be False in production")
+            # Validate Supabase configuration
+            if not self.SUPABASE_URL:
+                raise ValueError("SUPABASE_URL must be set in production")
+            if not self.SUPABASE_SERVICE_ROLE_KEY:
+                raise ValueError("SUPABASE_SERVICE_ROLE_KEY must be set in production")
+            if not self.SUPABASE_JWT_SECRET:
+                raise ValueError("SUPABASE_JWT_SECRET must be set in production")
 
 
 @lru_cache()

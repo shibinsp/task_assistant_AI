@@ -4,7 +4,7 @@ APScheduler integration for running automations on schedule and responding to ev
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -95,7 +95,7 @@ async def _execute_cron_agent(agent_id: str):
             is_shadow = (agent.status == AgentStatus.SHADOW)
             trigger_data = {
                 "trigger_type": "schedule",
-                "scheduled_at": datetime.utcnow().isoformat(),
+                "scheduled_at": datetime.now(timezone.utc).isoformat(),
             }
 
             await executor.execute_agent(agent, trigger_data, is_shadow=is_shadow)
@@ -182,7 +182,7 @@ async def _create_hourly_checkins():
             from app.models.checkin import CheckIn, CheckInStatus, CheckInTrigger
             from sqlalchemy import select, func, and_
 
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             current_hour = now.hour
 
             # Get all in-progress tasks with assignees
