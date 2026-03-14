@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:deployed": "E2E_BASE_URL=https://relaxed-gates.vercel.app playwright test"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

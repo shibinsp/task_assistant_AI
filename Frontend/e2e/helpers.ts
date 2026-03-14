@@ -1,9 +1,9 @@
 import { type Page, expect } from '@playwright/test';
 
-/** Demo credentials from seed data */
+/** Demo credentials — use deployed Supabase credentials when E2E_BASE_URL is set */
 export const DEMO_USER = {
-  email: 'admin@acme.com',
-  password: 'demo123',
+  email: process.env.E2E_BASE_URL ? 'admin@taskpulse.demo' : 'admin@acme.com',
+  password: process.env.E2E_BASE_URL ? 'TaskPulse2024' : 'demo123',
   name: 'Admin',
 };
 
