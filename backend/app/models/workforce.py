@@ -4,21 +4,20 @@ Executive-level decision intelligence
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
 import uuid
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class WorkforceScore(Base):
     """Employee workforce score snapshot."""
     __tablename__ = "workforce_scores"
 
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -48,8 +47,8 @@ class ManagerEffectiveness(Base):
     """Manager effectiveness metrics."""
     __tablename__ = "manager_effectiveness"
 
-    manager_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    manager_id = Column(CompatibleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -81,7 +80,7 @@ class OrgHealthSnapshot(Base):
     """Organization health daily snapshot."""
     __tablename__ = "org_health_snapshots"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     snapshot_date = Column(DateTime(timezone=True), server_default=func.now())
 
     # Health components (0-100)
@@ -111,15 +110,15 @@ class RestructuringScenario(Base):
     """What-if scenario for restructuring."""
     __tablename__ = "restructuring_scenarios"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False)
 
     name = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
 
     # Scenario config
     scenario_type = Column(String(100), nullable=False)  # team_merge, role_change, automation_replace, reduction
-    config = Column(JSONB, default={})
+    config = Column(CompatibleJSONB, default={})
 
     # Impact projections
     projected_cost_change = Column(Float, nullable=True)
@@ -128,7 +127,7 @@ class RestructuringScenario(Base):
     affected_employees = Column(Integer, default=0)
 
     # Risk assessment
-    risk_factors = Column(JSONB, default=[])
+    risk_factors = Column(CompatibleJSONB, default=[])
     overall_risk_score = Column(Float, nullable=True)
 
     # Status

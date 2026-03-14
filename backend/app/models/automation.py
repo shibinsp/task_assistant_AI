@@ -4,14 +4,13 @@ Pattern detection and AI agent management
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
 import uuid
 
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class PatternStatus(str, enum.Enum):
@@ -37,7 +36,7 @@ class AutomationPattern(Base):
     """Detected automation opportunity."""
     __tablename__ = "automation_patterns"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Pattern details
     name = Column(String(500), nullable=False)
@@ -56,12 +55,12 @@ class AutomationPattern(Base):
     implementation_complexity = Column(Integer, default=5)  # 1-10
 
     # Automation details
-    automation_recipe = Column(JSONB, default={})
-    triggers = Column(JSONB, default=[])
-    actions = Column(JSONB, default=[])
+    automation_recipe = Column(CompatibleJSONB, default={})
+    triggers = Column(CompatibleJSONB, default=[])
+    actions = Column(CompatibleJSONB, default=[])
 
     # User feedback
-    accepted_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    accepted_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
 
@@ -73,8 +72,8 @@ class AIAgent(Base):
     """AI automation agent."""
     __tablename__ = "ai_agents"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    pattern_id = Column(PG_UUID(as_uuid=True), ForeignKey("automation_patterns.id"), nullable=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    pattern_id = Column(CompatibleUUID, ForeignKey("automation_patterns.id"), nullable=True)
 
     # Agent info
     name = Column(String(200), nullable=False)
@@ -82,8 +81,8 @@ class AIAgent(Base):
     status = Column(Enum(AgentStatus), default=AgentStatus.CREATED)
 
     # Configuration
-    config = Column(JSONB, default={})
-    permissions = Column(JSONB, default=[])
+    config = Column(CompatibleJSONB, default={})
+    permissions = Column(CompatibleJSONB, default=[])
 
     # Shadow mode tracking
     shadow_started_at = Column(DateTime(timezone=True), nullable=True)
@@ -98,8 +97,8 @@ class AIAgent(Base):
     live_started_at = Column(DateTime(timezone=True), nullable=True)
 
     # Ownership
-    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    approved_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False)
+    approved_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", backref="ai_agents")
@@ -112,8 +111,8 @@ class AgentRun(Base):
     """Individual agent execution record."""
     __tablename__ = "agent_runs"
 
-    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey("ai_agents.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    agent_id = Column(CompatibleUUID, ForeignKey("ai_agents.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
 
     # Execution
     started_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -122,13 +121,13 @@ class AgentRun(Base):
     execution_time_ms = Column(Integer, nullable=True)
 
     # Results
-    input_data = Column(JSONB, default={})
-    output_data = Column(JSONB, default={})
+    input_data = Column(CompatibleJSONB, default={})
+    output_data = Column(CompatibleJSONB, default={})
     error_message = Column(Text, nullable=True)
 
     # Shadow mode comparison
     is_shadow = Column(Boolean, default=False)
-    human_action = Column(JSONB, nullable=True)
+    human_action = Column(CompatibleJSONB, nullable=True)
     matched_human = Column(Boolean, nullable=True)
 
     agent = relationship("AIAgent", backref="runs")

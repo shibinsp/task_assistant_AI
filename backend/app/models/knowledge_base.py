@@ -4,12 +4,11 @@ Document storage for RAG-powered AI assistance
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 import enum
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class DocumentSource(str, enum.Enum):
@@ -58,7 +57,7 @@ class Document(Base):
     __tablename__ = "documents"
 
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -91,11 +90,11 @@ class Document(Base):
 
     # Access control
     is_public = Column(Boolean, default=False)  # Visible to all org members
-    team_ids = Column(JSONB, default=[])  # Restricted to these teams
+    team_ids = Column(CompatibleJSONB, default=[])  # Restricted to these teams
 
     # Categorization
-    tags = Column(JSONB, default=[])
-    categories = Column(JSONB, default=[])
+    tags = Column(CompatibleJSONB, default=[])
+    categories = Column(CompatibleJSONB, default=[])
 
     # Stats
     view_count = Column(Integer, default=0)
@@ -123,7 +122,7 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
     document_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -141,7 +140,7 @@ class DocumentChunk(Base):
 
     # Metadata
     token_count = Column(Integer, nullable=True)
-    chunk_metadata = Column(JSONB, default={})
+    chunk_metadata = Column(CompatibleJSONB, default={})
 
     # Relationships
     document = relationship("Document", back_populates="chunks")
@@ -159,25 +158,25 @@ class UnblockSession(Base):
     __tablename__ = "unblock_sessions"
 
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     checkin_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("checkins.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -190,12 +189,12 @@ class UnblockSession(Base):
     # Response
     response = Column(Text, nullable=True)
     confidence = Column(Float, nullable=True)
-    sources = Column(JSONB, default=[])  # Document IDs used
+    sources = Column(CompatibleJSONB, default=[])  # Document IDs used
 
     # Escalation
     escalation_recommended = Column(Boolean, default=False)
     escalated = Column(Boolean, default=False)
-    escalated_to = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    escalated_to = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
 
     # Feedback
     was_helpful = Column(Boolean, nullable=True)

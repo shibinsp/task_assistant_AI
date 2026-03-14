@@ -4,13 +4,12 @@ Task management with subtasks, dependencies, and AI scoring
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 import enum
 from datetime import datetime, timezone
 from typing import Optional, List
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class TaskStatus(str, enum.Enum):
@@ -62,7 +61,7 @@ class Task(Base):
 
     # Organization
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -88,20 +87,20 @@ class Task(Base):
 
     # Assignment
     assigned_to = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     created_by = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=False
     )
 
     # Team/project grouping
-    team_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
-    project_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    team_id = Column(CompatibleUUID, nullable=True, index=True)
+    project_id = Column(CompatibleUUID, nullable=True, index=True)
 
     # Time tracking
     deadline = Column(DateTime(timezone=True), nullable=True)
@@ -120,13 +119,13 @@ class Task(Base):
     blocker_description = Column(Text, nullable=True)
 
     # Metadata stored as native JSONB
-    tools = Column(JSONB, default=[])  # Tools involved
-    tags = Column(JSONB, default=[])  # Custom tags
-    skills_required = Column(JSONB, default=[])  # Required skills
+    tools = Column(CompatibleJSONB, default=[])  # Tools involved
+    tags = Column(CompatibleJSONB, default=[])  # Custom tags
+    skills_required = Column(CompatibleJSONB, default=[])  # Required skills
 
     # Parent task (for subtasks)
     parent_task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=True,
         index=True
@@ -228,13 +227,13 @@ class TaskDependency(Base):
     __tablename__ = "task_dependencies"
 
     task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     depends_on_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -263,13 +262,13 @@ class TaskHistory(Base):
     __tablename__ = "task_history"
 
     task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
@@ -279,7 +278,7 @@ class TaskHistory(Base):
     field_name = Column(String(100), nullable=True)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
-    details = Column(JSONB, default={})
+    details = Column(CompatibleJSONB, default={})
 
     # Relationships
     task = relationship("Task", backref=backref("history", cascade="all, delete-orphan", passive_deletes=True))
@@ -294,13 +293,13 @@ class TaskComment(Base):
     __tablename__ = "task_comments"
 
     task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )

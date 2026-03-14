@@ -9,11 +9,10 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class SkillCategory(str, enum.Enum):
@@ -49,7 +48,7 @@ class Skill(Base):
     __tablename__ = "skills"
 
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -61,9 +60,9 @@ class Skill(Base):
     category = Column(Enum(SkillCategory), default=SkillCategory.TECHNICAL)
 
     # Metadata (native JSONB)
-    aliases = Column(JSONB, default=[])  # Alternative names
-    related_skills = Column(JSONB, default=[])  # Related skill IDs
-    prerequisites = Column(JSONB, default=[])  # Prerequisite skill IDs
+    aliases = Column(CompatibleJSONB, default=[])  # Alternative names
+    related_skills = Column(CompatibleJSONB, default=[])  # Related skill IDs
+    prerequisites = Column(CompatibleJSONB, default=[])  # Prerequisite skill IDs
 
     # Benchmarks
     org_average_level = Column(Float, nullable=True)
@@ -88,19 +87,19 @@ class UserSkill(Base):
     __tablename__ = "user_skills"
 
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     skill_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("skills.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -117,7 +116,7 @@ class UserSkill(Base):
     source = Column(String(50), default="inferred")  # inferred, self_reported, manager_assessed, certification
 
     # History (native JSONB)
-    level_history = Column(JSONB, default=[])  # [{date, level}, ...]
+    level_history = Column(CompatibleJSONB, default=[])  # [{date, level}, ...]
     notes = Column(Text, nullable=True)
 
     # Certification
@@ -153,19 +152,19 @@ class SkillGap(Base):
     __tablename__ = "skill_gaps"
 
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     skill_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("skills.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -187,7 +186,7 @@ class SkillGap(Base):
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 
     # Recommendations (native JSONB)
-    learning_resources = Column(JSONB, default=[])
+    learning_resources = Column(CompatibleJSONB, default=[])
 
     # Relationships
     user = relationship("User", backref="skill_gaps")
@@ -206,13 +205,13 @@ class SkillMetrics(Base):
     __tablename__ = "skill_metrics"
 
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -259,13 +258,13 @@ class LearningPath(Base):
     __tablename__ = "learning_paths"
 
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -277,8 +276,8 @@ class LearningPath(Base):
     target_role = Column(String(200), nullable=True)
 
     # Skills to develop (native JSONB)
-    skills_data = Column(JSONB, default=[])  # [{skill_id, target_level}, ...]
-    milestones = Column(JSONB, default=[])  # Progress milestones
+    skills_data = Column(CompatibleJSONB, default=[])  # [{skill_id, target_level}, ...]
+    milestones = Column(CompatibleJSONB, default=[])  # Progress milestones
 
     # Progress
     progress_percentage = Column(Float, default=0.0)

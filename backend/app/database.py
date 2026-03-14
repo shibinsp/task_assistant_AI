@@ -9,11 +9,18 @@ import ssl
 import uuid
 from typing import AsyncGenerator
 
-from sqlalchemy import Column, DateTime, func
+from sqlalchemy import Column, DateTime, JSON, String, func
 from sqlalchemy import Enum as _SQLAlchemyEnum
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, declared_attr
+
+
+# Cross-database compatible JSONB: uses JSONB on PostgreSQL, JSON on SQLite
+CompatibleJSONB = JSONB().with_variant(JSON(), "sqlite")
+
+# Cross-database compatible UUID: uses native UUID on PostgreSQL, String on SQLite
+CompatibleUUID = PG_UUID(as_uuid=True).with_variant(String(36), "sqlite")
 
 
 class Enum(_SQLAlchemyEnum):
@@ -83,9 +90,9 @@ class Base(DeclarativeBase):
             ['_' + c.lower() if c.isupper() else c for c in name]
         ).lstrip('_') + 's'
 
-    # Common columns for all models — using native PostgreSQL UUID
+    # Common columns for all models — using cross-DB compatible UUID
     id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         primary_key=True,
         default=uuid.uuid4,
         index=True

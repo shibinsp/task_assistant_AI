@@ -4,13 +4,12 @@ Communication and external system connections
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 import enum
 import uuid
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class NotificationType(str, enum.Enum):
@@ -67,16 +66,16 @@ class Notification(Base):
     """User notification."""
     __tablename__ = "notifications"
 
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     notification_type = Column(Enum(NotificationType), nullable=False)
     title = Column(String(500), nullable=False)
     message = Column(Text, nullable=True)
 
     # Related entities
-    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True)
-    checkin_id = Column(PG_UUID(as_uuid=True), ForeignKey("checkins.id"), nullable=True)
+    task_id = Column(CompatibleUUID, ForeignKey("tasks.id"), nullable=True)
+    checkin_id = Column(CompatibleUUID, ForeignKey("checkins.id"), nullable=True)
 
     # Status
     is_read = Column(Boolean, default=False)
@@ -89,7 +88,7 @@ class Notification(Base):
 
     # Action
     action_url = Column(String(1000), nullable=True)
-    action_data = Column(JSONB, default={})
+    action_data = Column(CompatibleJSONB, default={})
 
     user = relationship("User", backref="notifications")
     organization = relationship("Organization", backref="notifications")
@@ -101,8 +100,8 @@ class NotificationPreference(Base):
     """User notification preferences."""
     __tablename__ = "notification_preferences"
 
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
 
     notification_type = Column(Enum(NotificationType), nullable=False)
     channel = Column(Enum(NotificationChannel), nullable=False)
@@ -120,7 +119,7 @@ class Integration(Base):
     """External integration configuration."""
     __tablename__ = "integrations"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     integration_type = Column(Enum(IntegrationType), nullable=False)
     name = Column(String(200), nullable=False)
@@ -128,8 +127,8 @@ class Integration(Base):
 
     # Connection
     is_active = Column(Boolean, default=False)
-    config = Column(JSONB, default={})  # Encrypted in production
-    credentials = Column(JSONB, default={})  # Encrypted
+    config = Column(CompatibleJSONB, default={})  # Encrypted in production
+    credentials = Column(CompatibleJSONB, default={})  # Encrypted
 
     # Sync
     sync_enabled = Column(Boolean, default=True)
@@ -142,7 +141,7 @@ class Integration(Base):
     oauth_refresh_token = Column(Text, nullable=True)  # Encrypted
     oauth_expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    connected_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    connected_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
     connected_at = Column(DateTime(timezone=True), nullable=True)
 
     organization = relationship("Organization", backref="integrations")
@@ -153,20 +152,20 @@ class Webhook(Base):
     """Outbound webhook configuration."""
     __tablename__ = "webhooks"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     name = Column(String(200), nullable=False)
     url = Column(String(2000), nullable=False)
     secret = Column(String(255), nullable=True)  # For signature verification
 
     # Events
-    events = Column(JSONB, default=[])  # List of event types to trigger
+    events = Column(CompatibleJSONB, default=[])  # List of event types to trigger
 
     # Status
     is_active = Column(Boolean, default=True)
 
     # Headers
-    headers = Column(JSONB, default={})
+    headers = Column(CompatibleJSONB, default={})
 
     # Stats
     total_deliveries = Column(Integer, default=0)
@@ -174,7 +173,7 @@ class Webhook(Base):
     last_delivery_at = Column(DateTime(timezone=True), nullable=True)
     last_delivery_status = Column(Integer, nullable=True)
 
-    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False)
 
     organization = relationship("Organization", backref="webhooks")
     creator = relationship("User", backref="created_webhooks")
@@ -184,11 +183,11 @@ class WebhookDelivery(Base):
     """Webhook delivery log."""
     __tablename__ = "webhook_deliveries"
 
-    webhook_id = Column(PG_UUID(as_uuid=True), ForeignKey("webhooks.id", ondelete="CASCADE"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    webhook_id = Column(CompatibleUUID, ForeignKey("webhooks.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
 
     event_type = Column(String(100), nullable=False)
-    payload = Column(JSONB, default={})
+    payload = Column(CompatibleJSONB, default={})
 
     # Delivery
     attempted_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -275,7 +275,7 @@ export interface ApiDashboardMetrics {
     assigned_to?: string;
   }>;
   generated_at?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ApiVelocityData {
@@ -749,7 +749,7 @@ export interface ApiCheckInConfigCreate {
   ai_sentiment_analysis?: boolean;
 }
 
-export interface ApiCheckInConfigUpdate extends Partial<ApiCheckInConfigCreate> { }
+export type ApiCheckInConfigUpdate = Partial<ApiCheckInConfigCreate>;
 
 export interface ApiCheckInStatistics {
   total_checkins: number;

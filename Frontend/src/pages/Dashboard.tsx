@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { motion, type Variants } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -99,15 +98,14 @@ const itemVariants: Variants = {
 };
 
 export default function Dashboard() {
-  const [greeting, setGreeting] = useState('');
   const { user } = useAuthStore();
 
-  useEffect(() => {
+  const greeting = (() => {
     const hour = new Date().getHours();
-    if (hour < 12) setGreeting('Good morning');
-    else if (hour < 18) setGreeting('Good afternoon');
-    else setGreeting('Good evening');
-  }, []);
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  })();
 
   // Fetch dashboard metrics
   const { data: metrics, isLoading: metricsLoading, error: metricsError, refetch: refetchMetrics } = useQuery({

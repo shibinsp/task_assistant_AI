@@ -77,6 +77,7 @@ import { tasksService } from '@/services/tasks.service';
 import { chatService } from '@/services/chat.service';
 import { queryKeys } from '@/hooks/useApi';
 import { mapTaskToFrontend, mapStatusToApi, type FrontendTask, type FrontendTaskStatus } from '@/types/mappers';
+import type { ApiTaskPriority, ApiComment, ApiTask } from '@/types/api';
 import { getApiErrorMessage } from '@/lib/api-client';
 import { toast } from 'sonner';
 
@@ -613,7 +614,7 @@ function CreateTaskModal({
       const task = await tasksService.create({
         title: title.trim(),
         description: fullDescription.trim(),
-        priority: priority as any,
+        priority: priority as ApiTaskPriority,
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : undefined,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
         tags: tags.length > 0 ? tags : undefined,
@@ -880,6 +881,11 @@ function CreateTaskModal({
   );
 }
 
+// Subtask node with optional nested children
+interface SubtaskNode extends ApiTask {
+  subtasks?: SubtaskNode[];
+}
+
 // ─── Subtask Tree Component (recursive for nesting) ──────────────────
 function SubtaskTree({
   taskId,
@@ -888,7 +894,7 @@ function SubtaskTree({
   onRefresh,
 }: {
   taskId: string;
-  subtasks: any[];
+  subtasks: SubtaskNode[];
   level?: number;
   onRefresh: () => void;
 }) {
@@ -916,7 +922,7 @@ function SubtaskTree({
 
   return (
     <div className={`space-y-1.5 ${level > 0 ? 'ml-4 pl-3 border-l-2 border-border/50' : ''}`}>
-      {subtasks.map((sub: any) => {
+      {subtasks.map((sub: SubtaskNode) => {
         const hasChildren = sub.subtasks && sub.subtasks.length > 0;
         const isExpanded = expanded[sub.id];
 
@@ -1073,7 +1079,7 @@ function TaskDetailPanel({
     queryKey: queryKeys.tasks.comments(task.id),
     queryFn: () => tasksService.getComments(task.id),
   });
-  const comments = Array.isArray(commentsData) ? commentsData : (commentsData as any)?.comments ?? [];
+  const comments: ApiComment[] = commentsData ?? [];
 
   const blockerMutation = useMutation({
     mutationFn: () =>
@@ -1249,7 +1255,7 @@ function TaskDetailPanel({
                 Comments
               </h3>
               <div className="space-y-2">
-                {comments.map((comment: any) => (
+                {comments.map((comment: ApiComment) => (
                   <div key={comment.id} className="p-3 rounded-lg bg-muted text-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium text-xs">

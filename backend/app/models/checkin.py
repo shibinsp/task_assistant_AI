@@ -4,7 +4,6 @@ Smart check-in system for proactive task monitoring
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 import enum
@@ -12,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleUUID, Enum
 
 
 class CheckInTrigger(str, enum.Enum):
@@ -54,19 +53,19 @@ class CheckIn(Base):
 
     # Relationships
     task_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("tasks.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -98,7 +97,7 @@ class CheckIn(Base):
 
     # Escalation
     escalated = Column(Boolean, default=False)
-    escalated_to = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    escalated_to = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
     escalated_at = Column(DateTime(timezone=True), nullable=True)
     escalation_reason = Column(Text, nullable=True)
 
@@ -138,16 +137,16 @@ class CheckInConfig(Base):
     __tablename__ = "checkin_configs"
 
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
 
     # Scope - one of these should be set (null = org-wide default)
-    team_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
-    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True, index=True)
+    team_id = Column(CompatibleUUID, nullable=True, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True, index=True)
+    task_id = Column(CompatibleUUID, ForeignKey("tasks.id"), nullable=True, index=True)
 
     # Check-in settings
     interval_hours = Column(Float, default=3.0)  # Hours between check-ins
@@ -194,13 +193,13 @@ class CheckInReminder(Base):
     __tablename__ = "checkin_reminders"
 
     checkin_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("checkins.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
     user_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )

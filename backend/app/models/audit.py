@@ -4,13 +4,12 @@ Security, compliance, and admin features
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
 import uuid
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class ActorType(str, enum.Enum):
@@ -55,23 +54,23 @@ class AuditLog(Base):
     """Immutable audit log entry."""
     __tablename__ = "audit_logs"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Actor
     actor_type = Column(Enum(ActorType), nullable=False)
-    actor_id = Column(PG_UUID(as_uuid=True), nullable=True)  # User/system ID
+    actor_id = Column(CompatibleUUID, nullable=True)  # User/system ID
     actor_name = Column(String(200), nullable=True)
 
     # Action
     action = Column(Enum(AuditAction), nullable=False)
     resource_type = Column(String(100), nullable=False)  # user, task, org, etc.
-    resource_id = Column(PG_UUID(as_uuid=True), nullable=True)
+    resource_id = Column(CompatibleUUID, nullable=True)
 
     # Details
     description = Column(Text, nullable=True)
-    old_value = Column(JSONB, nullable=True)
-    new_value = Column(JSONB, nullable=True)
-    audit_metadata = Column(JSONB, default={})
+    old_value = Column(CompatibleJSONB, nullable=True)
+    new_value = Column(CompatibleJSONB, nullable=True)
+    audit_metadata = Column(CompatibleJSONB, default={})
 
     # Context
     ip_address = Column(String(45), nullable=True)
@@ -88,8 +87,8 @@ class GDPRRequest(Base):
     """GDPR data request tracking."""
     __tablename__ = "gdpr_requests"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False, index=True)
 
     request_type = Column(String(50), nullable=False)  # export, erasure, access, rectification
     status = Column(String(50), default="pending")  # pending, processing, completed, failed
@@ -98,7 +97,7 @@ class GDPRRequest(Base):
     requested_at = Column(DateTime(timezone=True), server_default=func.now())
     processed_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    processed_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    processed_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
 
     # Result
     result_url = Column(String(2000), nullable=True)  # For export downloads
@@ -118,15 +117,15 @@ class APIKey(Base):
     """API key for programmatic access."""
     __tablename__ = "api_keys"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False)
 
     name = Column(String(200), nullable=False)
     key_hash = Column(String(255), nullable=False)  # Only store hash
     key_prefix = Column(String(10), nullable=False)  # For identification
 
     # Permissions
-    scopes = Column(JSONB, default=[])  # Specific permissions
+    scopes = Column(CompatibleJSONB, default=[])  # Specific permissions
     is_full_access = Column(Boolean, default=False)
 
     # Status
@@ -143,7 +142,7 @@ class APIKey(Base):
     current_usage = Column(Integer, default=0)
     usage_reset_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False)
 
     organization = relationship("Organization", backref="api_keys")
     owner = relationship("User", foreign_keys=[user_id], backref="api_keys")
@@ -179,4 +178,4 @@ class SystemHealth(Base):
     storage_used_mb = Column(Float, nullable=True)
 
     # Alerts
-    active_alerts = Column(JSONB, default=[])
+    active_alerts = Column(CompatibleJSONB, default=[])

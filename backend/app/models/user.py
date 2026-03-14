@@ -7,12 +7,11 @@ from sqlalchemy import (
     Column, String, Text, Boolean, ForeignKey, DateTime,
     Integer, UniqueConstraint, func
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 import enum
 from datetime import datetime, timezone
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class UserRole(str, enum.Enum):
@@ -43,7 +42,7 @@ class User(Base):
 
     # Organization relationship
     org_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("organizations.id", ondelete="CASCADE"),
         nullable=False,
         index=True
@@ -53,7 +52,7 @@ class User(Base):
     email = Column(String(255), nullable=False, index=True)
     password_hash = Column(String(255), nullable=True)  # Null for SSO-only users
     is_sso_user = Column(Boolean, default=False)
-    supabase_auth_id = Column(PG_UUID(as_uuid=True), unique=True, index=True, nullable=True)
+    supabase_auth_id = Column(CompatibleUUID, unique=True, index=True, nullable=True)
 
     # Profile
     first_name = Column(String(100), nullable=False)
@@ -75,15 +74,15 @@ class User(Base):
     )
 
     # Team/reporting structure
-    team_id = Column(PG_UUID(as_uuid=True), nullable=True, index=True)
+    team_id = Column(CompatibleUUID, nullable=True, index=True)
     manager_id = Column(
-        PG_UUID(as_uuid=True),
+        CompatibleUUID,
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True
     )
 
     # GDPR consent tracking
-    consent_data = Column(JSONB, default={})
+    consent_data = Column(CompatibleJSONB, default={})
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)

@@ -4,11 +4,10 @@ Multi-tenant organization support
 """
 
 from sqlalchemy import Column, String, Text, Boolean
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 import enum
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, Enum
 
 
 class PlanTier(str, enum.Enum):
@@ -40,7 +39,7 @@ class Organization(Base):
     )
 
     # Settings stored as JSONB
-    settings_data = Column(JSONB, default={})
+    settings_data = Column(CompatibleJSONB, default={})
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False)

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -59,12 +59,6 @@ function ProfileSection({ org }: { org: ApiOrganizationDetail }) {
     description: org.description ?? '',
   });
 
-  useEffect(() => {
-    setFormData({
-      name: org.name ?? '',
-      description: org.description ?? '',
-    });
-  }, [org]);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -618,7 +612,7 @@ export default function OrganizationSettingsPage() {
                 </Card>
               </div>
             ) : org ? (
-              <ProfileSection org={org} />
+              <ProfileSection key={org.id} org={org} />
             ) : null}
           </TabsContent>
 

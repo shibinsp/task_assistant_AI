@@ -18,11 +18,10 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
-from ..database import Base, Enum as SQLEnum
+from ..database import Base, CompatibleJSONB, CompatibleUUID, Enum as SQLEnum
 
 
 class AgentType(str, Enum):
@@ -57,7 +56,7 @@ class Agent(Base):
     """
     __tablename__ = "agents"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Identity
     name = Column(String(100), nullable=False, unique=True)
@@ -67,15 +66,15 @@ class Agent(Base):
 
     # Classification
     agent_type = Column(SQLEnum(AgentType), nullable=False, default=AgentType.AI)
-    capabilities = Column(JSONB, default=list)  # List of capability strings
+    capabilities = Column(CompatibleJSONB, default=list)  # List of capability strings
 
     # Status
     status = Column(SQLEnum(AgentStatusDB), default=AgentStatusDB.ACTIVE)
     is_enabled = Column(Boolean, default=True)
 
     # Configuration
-    config = Column(JSONB, default=dict)
-    permissions = Column(JSONB, default=list)
+    config = Column(CompatibleJSONB, default=dict)
+    permissions = Column(CompatibleJSONB, default=list)
 
     # Metrics
     execution_count = Column(Integer, default=0)
@@ -100,18 +99,18 @@ class AgentExecution(Base):
     """
     __tablename__ = "agent_executions"
 
-    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    agent_id = Column(CompatibleUUID, ForeignKey("agents.id"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Trigger information
     event_type = Column(String(100), nullable=False)
-    event_id = Column(PG_UUID(as_uuid=True), nullable=True)
+    event_id = Column(CompatibleUUID, nullable=True)
     trigger_source = Column(String(100), nullable=True)  # user, system, scheduled, chain
 
     # Context
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True)
-    context_data = Column(JSONB, default=dict)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
+    task_id = Column(CompatibleUUID, ForeignKey("tasks.id"), nullable=True)
+    context_data = Column(CompatibleJSONB, default=dict)
 
     # Execution details
     status = Column(SQLEnum(ExecutionStatus), default=ExecutionStatus.PENDING)
@@ -121,7 +120,7 @@ class AgentExecution(Base):
 
     # Results
     success = Column(Boolean, default=False)
-    output_data = Column(JSONB, default=dict)
+    output_data = Column(CompatibleJSONB, default=dict)
     error_message = Column(Text, nullable=True)
     error_code = Column(String(50), nullable=True)
 
@@ -130,7 +129,7 @@ class AgentExecution(Base):
     api_calls = Column(Integer, default=0)
 
     # Chain information
-    parent_execution_id = Column(PG_UUID(as_uuid=True), ForeignKey("agent_executions.id"), nullable=True)
+    parent_execution_id = Column(CompatibleUUID, ForeignKey("agent_executions.id"), nullable=True)
     chain_depth = Column(Integer, default=0)
 
     # Relationships
@@ -152,8 +151,8 @@ class AgentConversation(Base):
     """
     __tablename__ = "agent_conversations"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id"), nullable=False, index=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=False, index=True)
 
     # Conversation metadata
     title = Column(String(200), nullable=True)
@@ -164,8 +163,8 @@ class AgentConversation(Base):
     message_count = Column(Integer, default=0)
 
     # Conversation data
-    messages = Column(JSONB, default=list)  # List of ConversationMessage dicts
-    context_data = Column(JSONB, default=dict)  # Persistent context
+    messages = Column(CompatibleJSONB, default=list)  # List of ConversationMessage dicts
+    context_data = Column(CompatibleJSONB, default=dict)  # Persistent context
 
     # Timestamps
     started_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -216,8 +215,8 @@ class AgentSchedule(Base):
     """
     __tablename__ = "agent_schedules"
 
-    agent_id = Column(PG_UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, index=True)
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    agent_id = Column(CompatibleUUID, ForeignKey("agents.id"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id"), nullable=False, index=True)
 
     # Schedule definition
     name = Column(String(100), nullable=False)
@@ -226,7 +225,7 @@ class AgentSchedule(Base):
 
     # Configuration
     is_enabled = Column(Boolean, default=True)
-    config = Column(JSONB, default=dict)  # Additional config for scheduled run
+    config = Column(CompatibleJSONB, default=dict)  # Additional config for scheduled run
 
     # Tracking
     last_run_at = Column(DateTime(timezone=True), nullable=True)

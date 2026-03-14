@@ -4,14 +4,13 @@ ML-powered forecasting and risk assessment
 """
 
 from sqlalchemy import Column, String, Text, Boolean, ForeignKey, Integer, Float, DateTime
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 import enum
 import uuid
 from datetime import datetime
 
-from app.database import Base, Enum
+from app.database import Base, CompatibleJSONB, CompatibleUUID, Enum
 
 
 class PredictionType(str, enum.Enum):
@@ -27,14 +26,14 @@ class Prediction(Base):
     """Prediction record for tasks/projects."""
     __tablename__ = "predictions"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
     prediction_type = Column(Enum(PredictionType), nullable=False)
 
     # Target
-    task_id = Column(PG_UUID(as_uuid=True), ForeignKey("tasks.id"), nullable=True)
-    project_id = Column(PG_UUID(as_uuid=True), nullable=True)
-    user_id = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    team_id = Column(PG_UUID(as_uuid=True), nullable=True)
+    task_id = Column(CompatibleUUID, ForeignKey("tasks.id"), nullable=True)
+    project_id = Column(CompatibleUUID, nullable=True)
+    user_id = Column(CompatibleUUID, ForeignKey("users.id"), nullable=True)
+    team_id = Column(CompatibleUUID, nullable=True)
 
     # Prediction values
     predicted_date_p25 = Column(DateTime(timezone=True), nullable=True)  # 25th percentile
@@ -44,9 +43,9 @@ class Prediction(Base):
     risk_score = Column(Float, nullable=True)  # 0-1
 
     # Factors
-    risk_factors = Column(JSONB, default=[])
+    risk_factors = Column(CompatibleJSONB, default=[])
     model_version = Column(String(50), default="v1")
-    features = Column(JSONB, default={})
+    features = Column(CompatibleJSONB, default={})
 
     # Accuracy tracking
     actual_date = Column(DateTime(timezone=True), nullable=True)
@@ -61,8 +60,8 @@ class VelocitySnapshot(Base):
     """Team velocity snapshots for trending."""
     __tablename__ = "velocity_snapshots"
 
-    org_id = Column(PG_UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
-    team_id = Column(PG_UUID(as_uuid=True), nullable=False, index=True)
+    org_id = Column(CompatibleUUID, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    team_id = Column(CompatibleUUID, nullable=False, index=True)
 
     period_start = Column(DateTime(timezone=True), nullable=False)
     period_end = Column(DateTime(timezone=True), nullable=False)
