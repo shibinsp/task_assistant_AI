@@ -49,7 +49,11 @@ engine = create_async_engine(
     pool_size=5,
     max_overflow=10,
     pool_pre_ping=True,
-    connect_args={"ssl": _ssl_context, "statement_cache_size": 0},
+    connect_args=(
+        {"ssl": _ssl_context, "statement_cache_size": 0}
+        if "asyncpg" in settings.DATABASE_URL
+        else {}
+    ),
 )
 
 # Create async session factory
