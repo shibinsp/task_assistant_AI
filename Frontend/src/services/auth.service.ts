@@ -1,5 +1,7 @@
 import apiClient from '@/lib/api-client';
 import type {
+  ApiLoginResponse,
+  ApiTokenResponse,
   ApiRegisterResponse,
   ApiCurrentUser,
   ApiPasswordChange,
@@ -9,6 +11,17 @@ import type {
 } from '@/types/api';
 
 export const authService = {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<ApiLoginResponse> {
+    const { data } = await apiClient.post<ApiLoginResponse>('/auth/login', {
+      email,
+      password,
+    });
+    return data;
+  },
+
   async register(
     email: string,
     password: string,
@@ -28,6 +41,13 @@ export const authService = {
     return data;
   },
 
+  async refreshSession(refreshToken: string): Promise<ApiTokenResponse> {
+    const { data } = await apiClient.post<{ message: string; tokens: ApiTokenResponse }>('/auth/refresh', {
+      refresh_token: refreshToken,
+    });
+    return data.tokens;
+  },
+
   async getMe(): Promise<ApiCurrentUser> {
     const { data } = await apiClient.get<ApiCurrentUser>('/auth/me');
     return data;
@@ -44,6 +64,10 @@ export const authService = {
   async forgotPassword(email: string): Promise<{ message: string }> {
     const { data } = await apiClient.post<{ message: string }>('/auth/forgot-password', { email });
     return data;
+  },
+
+  async logout(): Promise<void> {
+    await apiClient.post('/auth/logout');
   },
 
   async getConsent(): Promise<ApiConsentResponse> {

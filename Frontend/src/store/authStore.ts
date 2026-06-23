@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { authService } from '@/services/auth.service';
 import { mapCurrentUserToFrontend, splitFullName } from '@/types/mappers';
 import { queryClient } from '@/hooks/useApi';
@@ -30,7 +30,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
@@ -40,12 +40,11 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) throw error;
+          const loginResponse = await authService.login(email, password);
 
           // Store tokens first so the API client interceptor can attach them to getMe()
-          const accessToken = data.session?.access_token ?? null;
-          const refreshToken = data.session?.refresh_token ?? null;
+          const accessToken = loginResponse.tokens.access_token ?? null;
+          const refreshToken = loginResponse.tokens.refresh_token ?? null;
           set({ accessToken, refreshToken });
 
           // Fetch full user profile with RBAC data from backend
@@ -66,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
       oauthLogin: async () => {
         set({ isLoading: true });
         try {
+          const supabase = await getSupabase();
           const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -85,23 +85,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const { firstName, lastName } = splitFullName(name);
 
-          // Sign up with Supabase Auth
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: { first_name: firstName, last_name: lastName },
-            },
-          });
-          if (error) throw error;
-
-          // Store tokens first so the API client interceptor can attach them
-          const accessToken = data.session?.access_token ?? null;
-          const refreshToken = data.session?.refresh_token ?? null;
-          set({ accessToken, refreshToken });
-
-          // Create the local user record in backend (org, role, etc.)
-          const registerResponse = await authService.register(
+          await authService.register(
             email,
             password,
             firstName,
@@ -109,7 +93,14 @@ export const useAuthStore = create<AuthState>()(
             company || undefined,
             role || undefined,
           );
-          const frontendUser = mapCurrentUserToFrontend(registerResponse.user);
+
+          const loginResponse = await authService.login(email, password);
+          const accessToken = loginResponse.tokens.access_token ?? null;
+          const refreshToken = loginResponse.tokens.refresh_token ?? null;
+          set({ accessToken, refreshToken });
+
+          const meResponse = await authService.getMe();
+          const frontendUser = mapCurrentUserToFrontend(meResponse);
 
           set({
             user: frontendUser,
@@ -123,7 +114,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        supabase.auth.signOut().catch(() => {});
+        void authService.logout().catch(() => {});
+        void getSupabase().then((supabase) => supabase.auth.signOut()).catch(() => {});
         queryClient.clear();
         set({
           user: null,
@@ -140,42 +132,106 @@ export const useAuthStore = create<AuthState>()(
       },
 
       initAuth: () => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, session) => {
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-              if (session) {
-                set({
-                  accessToken: session.access_token,
-                  refreshToken: session.refresh_token,
-                });
-                try {
-                  const meResponse = await authService.getMe();
-                  const frontendUser = mapCurrentUserToFrontend(meResponse);
-                  set({
-                    user: frontendUser,
-                    isAuthenticated: true,
-                    isLoading: false,
-                  });
-                } catch {
-                  // Backend may not be reachable yet; tokens are stored,
-                  // user profile will be fetched on next navigation
-                }
-              }
-            } else if (event === 'SIGNED_OUT') {
+        let unsubscribe = () => {};
+        let cancelled = false;
+
+        const bootstrapStoredSession = async () => {
+          const { accessToken, refreshToken, isAuthenticated, user } = get();
+
+          if (!accessToken && !refreshToken) {
+            if (isAuthenticated || user) {
               queryClient.clear();
               set({
                 user: null,
                 accessToken: null,
                 refreshToken: null,
                 isAuthenticated: false,
+                isLoading: false,
               });
             }
-          },
-        );
+            return;
+          }
 
-        // Return unsubscribe function for cleanup
+          set({ isLoading: true });
+
+          try {
+            const meResponse = await authService.getMe();
+            if (cancelled) {
+              return;
+            }
+
+            const frontendUser = mapCurrentUserToFrontend(meResponse);
+            set({
+              user: frontendUser,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          } catch {
+            if (cancelled) {
+              return;
+            }
+
+            queryClient.clear();
+            set({
+              user: null,
+              accessToken: null,
+              refreshToken: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
+        };
+
+        void bootstrapStoredSession();
+
+        void getSupabase()
+          .then((supabase) => {
+            if (cancelled) {
+              return;
+            }
+
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+              async (event, session) => {
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                  if (session) {
+                    set({
+                      accessToken: session.access_token,
+                      refreshToken: session.refresh_token,
+                    });
+                    try {
+                      const meResponse = await authService.getMe();
+                      const frontendUser = mapCurrentUserToFrontend(meResponse);
+                      set({
+                        user: frontendUser,
+                        isAuthenticated: true,
+                        isLoading: false,
+                      });
+                    } catch {
+                      // Backend may not be reachable yet; tokens are stored,
+                      // user profile will be fetched on next navigation
+                    }
+                  }
+                } else if (event === 'SIGNED_OUT') {
+                  queryClient.clear();
+                  set({
+                    user: null,
+                    accessToken: null,
+                    refreshToken: null,
+                    isAuthenticated: false,
+                  });
+                }
+              },
+            );
+
+            unsubscribe = () => {
+              subscription.unsubscribe();
+            };
+          })
+          .catch(() => {});
+
         return () => {
-          subscription.unsubscribe();
+          cancelled = true;
+          unsubscribe();
         };
       },
     }),
