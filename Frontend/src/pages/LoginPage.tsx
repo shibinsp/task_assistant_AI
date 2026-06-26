@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -9,8 +9,10 @@ import {
   EyeOff,
   ArrowRight,
   Github,
-  Loader2
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +27,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useAuthStore } from '@/store/authStore';
-import { authService } from '@/services/auth.service';
 import { getApiErrorMessage } from '@/lib/api-client';
+import { getSupabase, getSupabaseConfigError } from '@/lib/supabase';
+import { authService } from '@/services/auth.service';
 import { toast } from 'sonner';
 
 function ForgotPasswordDialog() {
@@ -94,11 +97,34 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { login, oauthLogin, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
+  const [authConfigError, setAuthConfigError] = useState<string | null>(
+    getSupabaseConfigError()?.message ?? null
+  );
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false,
   });
+
+  useEffect(() => {
+    let active = true;
+
+    void getSupabase()
+      .then(() => {
+        if (active) {
+          setAuthConfigError(null);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setAuthConfigError(getApiErrorMessage(error));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,11 +167,22 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {authConfigError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTriangle />
+              <AlertTitle>Google sign-in is unavailable</AlertTitle>
+              <AlertDescription>
+                {authConfigError}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Social Login */}
           <div className="mb-6 space-y-3">
             <Button
               variant="outline"
               className="gap-2 w-full"
+              disabled={Boolean(authConfigError) || isLoading}
               onClick={async () => {
                 try {
                   await oauthLogin();
@@ -162,7 +199,11 @@ export default function LoginPage() {
               </svg>
               Google
             </Button>
-            <Button variant="outline" className="gap-2 w-full">
+            <Button
+              variant="outline"
+              className="gap-2 w-full"
+              disabled={Boolean(authConfigError) || isLoading}
+            >
               <Github className="w-4 h-4" />
               GitHub
             </Button>

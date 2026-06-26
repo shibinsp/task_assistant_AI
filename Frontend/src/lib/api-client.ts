@@ -15,7 +15,6 @@
  */
 
 import axios from 'axios';
-import { supabase } from '@/lib/supabase';
 
 const AUTH_STORAGE_KEY = 'taskpulse-auth';
 
@@ -61,6 +60,27 @@ function clearAuth() {
   }
 }
 
+async function refreshAccessToken(refreshToken: string) {
+  const { data } = await axios.post<{
+    message: string;
+    tokens: {
+      access_token: string;
+      refresh_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+  }>(
+    '/api/v1/auth/refresh',
+    { refresh_token: refreshToken },
+    {
+      headers: { 'Content-Type': 'application/json' },
+      withCredentials: true,
+    }
+  );
+
+  return data.tokens;
+}
+
 // SEC-006: Read the csrf_token cookie set by the backend
 function getCsrfToken(): string | null {
   const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
@@ -78,18 +98,8 @@ const apiClient = axios.create({
 // ─── Request interceptor: inject token + CSRF ────────────────────────
 
 apiClient.interceptors.request.use(async (config) => {
-  // Attach JWT access token (prefer zustand store, fallback to Supabase session)
-  let { accessToken } = getTokens();
-  if (!accessToken) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        accessToken = session.access_token;
-      }
-    } catch {
-      // Supabase client may not be initialized yet
-    }
-  }
+  // Attach JWT access token from persisted auth state
+  const { accessToken } = getTokens();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
@@ -157,12 +167,14 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const { data: refreshData, error: refreshErr } = await supabase.auth.refreshSession();
-      if (refreshErr || !refreshData.session) {
-        throw refreshErr || new Error('No session after refresh');
+      const { refreshToken } = getTokens();
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
       }
-      const newAccessToken = refreshData.session.access_token;
-      const newRefreshToken = refreshData.session.refresh_token;
+
+      const refreshData = await refreshAccessToken(refreshToken);
+      const newAccessToken = refreshData.access_token;
+      const newRefreshToken = refreshData.refresh_token;
       setTokens(newAccessToken, newRefreshToken);
       processQueue(null, newAccessToken);
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;

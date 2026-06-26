@@ -35,10 +35,14 @@ from app.models.notification import (
 from app.models.audit import AuditLog, ActorType, AuditAction
 from app.models.agent import Agent, AgentExecution, AgentType, AgentStatusDB, ExecutionStatus
 from app.core.security import hash_password
+from app.supabase_client import get_supabase_client
 from app.utils.helpers import generate_uuid
 
 
 NOW = datetime.now(timezone.utc)
+
+# Shared demo password for all seeded accounts.
+DEMO_PASSWORD = "demo123"
 
 
 def days_ago(d: int, h: int = 0) -> datetime:
@@ -47,6 +51,45 @@ def days_ago(d: int, h: int = 0) -> datetime:
 
 def days_from_now(d: int) -> datetime:
     return NOW + timedelta(days=d)
+
+
+def ensure_supabase_auth_user(
+    supabase, email: str, password: str, first_name: str, last_name: str
+) -> str:
+    """Idempotently ensure a Supabase Auth user exists for ``email``.
+
+    Authentication is delegated entirely to Supabase Auth (see auth_service),
+    and authenticated requests resolve the local user by ``supabase_auth_id``,
+    so every demo account must have a matching Supabase Auth record. Returns
+    the Supabase Auth user id. Safe to re-run: if the user already exists, its
+    existing id is returned instead of raising.
+    """
+    try:
+        resp = supabase.auth.admin.create_user(
+            {
+                "email": email,
+                "password": password,
+                "email_confirm": True,
+                "user_metadata": {"first_name": first_name, "last_name": last_name},
+            }
+        )
+        return str(resp.user.id)
+    except Exception as create_err:
+        # Likely "email already registered" — look the user up to stay idempotent.
+        try:
+            existing = supabase.auth.admin.list_users()
+            users = existing if isinstance(existing, list) else getattr(existing, "users", [])
+            for u in users:
+                if (getattr(u, "email", "") or "").lower() == email.lower():
+                    return str(u.id)
+        except Exception as list_err:
+            raise RuntimeError(
+                f"Could not create or find Supabase Auth user {email}: "
+                f"create error={create_err}; list error={list_err}"
+            )
+        raise RuntimeError(
+            f"Supabase Auth user {email} could not be created and was not found: {create_err}"
+        )
 
 
 # ─── Data definitions ────────────────────────────────────────────────
@@ -369,15 +412,20 @@ async def seed_database():
         await session.flush()
 
         # ─── 2. Users ───────────────────────────────────────────────
-        print("2/27  Creating 10 users...")
-        pw_hash = hash_password("demo123")
+        print("2/27  Creating 10 users (provisioning Supabase Auth)...")
+        supabase = get_supabase_client()
+        pw_hash = hash_password(DEMO_PASSWORD)
         users = []
         for ud in DEMO_USERS:
+            auth_id = ensure_supabase_auth_user(
+                supabase, ud["email"], DEMO_PASSWORD, ud["first_name"], ud["last_name"]
+            )
             user = User(
                 id=generate_uuid(),
                 org_id=org.id,
                 email=ud["email"],
                 password_hash=pw_hash,
+                supabase_auth_id=auth_id,
                 first_name=ud["first_name"],
                 last_name=ud["last_name"],
                 role=ud["role"],
@@ -1185,6 +1233,93 @@ async def seed_database():
     await engine.dispose()
 
 
+async def seed_users_only():
+    """Idempotently provision ONLY the demo login accounts (org + users).
+
+    Unlike ``seed_database()``, this creates no tasks/skills/automation/etc., so
+    it is safe to run against production: it touches only the demo organization
+    and the demo users, provisions their Supabase Auth records, and re-running
+    updates existing rows instead of duplicating them.
+    """
+    from sqlalchemy import select
+
+    # Reuse the app's engine/session so the Supabase pooler SSL context and
+    # statement_cache_size=0 settings are applied (a raw engine would fail to
+    # connect to the production pooler).
+    from app.database import AsyncSessionLocal, engine
+
+    print("=" * 60)
+    print("Provisioning demo login accounts (users-only mode)")
+    print("=" * 60)
+
+    supabase = get_supabase_client()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async with AsyncSessionLocal() as session:
+        # Organization — idempotent by slug.
+        org = (
+            await session.execute(
+                select(Organization).where(Organization.slug == "acme-corp")
+            )
+        ).scalar_one_or_none()
+        if org is None:
+            org = Organization(
+                id=generate_uuid(),
+                name="Acme Corporation",
+                slug="acme-corp",
+                description="Demo organization for TaskPulse AI.",
+                plan="professional",
+                settings_json=json.dumps({
+                    "timezone": "America/New_York",
+                    "checkin_interval_hours": 3,
+                    "notifications_enabled": True,
+                }),
+                is_active=True,
+            )
+            session.add(org)
+            await session.flush()
+            print(f"  + Created organization '{org.name}'")
+        else:
+            print(f"  = Organization '{org.name}' already exists")
+
+        pw_hash = hash_password(DEMO_PASSWORD)
+        for ud in DEMO_USERS:
+            auth_id = ensure_supabase_auth_user(
+                supabase, ud["email"], DEMO_PASSWORD, ud["first_name"], ud["last_name"]
+            )
+            existing = (
+                await session.execute(select(User).where(User.email == ud["email"]))
+            ).scalar_one_or_none()
+            if existing is None:
+                session.add(User(
+                    id=generate_uuid(),
+                    org_id=org.id,
+                    email=ud["email"],
+                    password_hash=pw_hash,
+                    supabase_auth_id=auth_id,
+                    first_name=ud["first_name"],
+                    last_name=ud["last_name"],
+                    role=ud["role"],
+                    skill_level=ud["skill_level"],
+                    is_active=True,
+                    is_email_verified=True,
+                    team_id=ud["team"],
+                    timezone="America/New_York",
+                ))
+                print(f"  + Created user {ud['email']} (auth_id={auth_id})")
+            else:
+                existing.supabase_auth_id = auth_id
+                existing.is_active = True
+                existing.is_email_verified = True
+                print(f"  = Updated user {ud['email']} (auth_id={auth_id})")
+        await session.commit()
+
+    await engine.dispose()
+    print(f"\nDone. Log in with any demo email and password: {DEMO_PASSWORD}")
+    print("=" * 60)
+
+
 async def clear_database():
     """Clear all data from the database."""
     print("Clearing database...")
@@ -1198,7 +1333,10 @@ async def clear_database():
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "--clear":
+    arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if arg == "--clear":
         asyncio.run(clear_database())
+    elif arg == "--users-only":
+        asyncio.run(seed_users_only())
     else:
         asyncio.run(seed_database())

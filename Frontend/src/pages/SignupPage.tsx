@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -11,9 +11,11 @@ import {
   Loader2,
   User,
   Building2,
-  Shield
+  Shield,
+  AlertTriangle,
 } from 'lucide-react';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { getApiErrorMessage } from '@/lib/api-client';
+import { getSupabase, getSupabaseConfigError } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 const SIGNUP_ROLES = [
@@ -42,6 +45,9 @@ export default function SignupPage() {
   const { signup, oauthLogin, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(1);
+  const [authConfigError, setAuthConfigError] = useState<string | null>(
+    getSupabaseConfigError()?.message ?? null
+  );
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -50,6 +56,26 @@ export default function SignupPage() {
     role: 'employee',
     agreeToTerms: false,
   });
+
+  useEffect(() => {
+    let active = true;
+
+    void getSupabase()
+      .then(() => {
+        if (active) {
+          setAuthConfigError(null);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setAuthConfigError(getApiErrorMessage(error));
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +137,16 @@ export default function SignupPage() {
             </p>
           </div>
 
+          {authConfigError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTriangle />
+              <AlertTitle>Google sign-in is unavailable</AlertTitle>
+              <AlertDescription>
+                {authConfigError}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Progress */}
           <div className="flex gap-2 mb-6">
             {[1, 2].map((s) => (
@@ -130,6 +166,7 @@ export default function SignupPage() {
                 <Button
                   variant="outline"
                   className="gap-2 w-full"
+                  disabled={Boolean(authConfigError) || isLoading}
                   onClick={async () => {
                     try {
                       await oauthLogin();
@@ -146,7 +183,11 @@ export default function SignupPage() {
                   </svg>
                   Google
                 </Button>
-                <Button variant="outline" className="gap-2 w-full">
+                <Button
+                  variant="outline"
+                  className="gap-2 w-full"
+                  disabled={Boolean(authConfigError) || isLoading}
+                >
                   <Github className="w-4 h-4" />
                   GitHub
                 </Button>
