@@ -43,14 +43,17 @@
 
 **Production**: [https://relaxed-gates.vercel.app](https://relaxed-gates.vercel.app)
 
+Demo accounts (created by the seed script — all share the password `demo123`):
+
 | Email | Password | Role |
 |-------|----------|------|
-| `admin@taskpulse.demo` | `TaskPulse2024` | Super Admin |
-| `orgadmin@taskpulse.demo` | `TaskPulse2024` | Org Admin |
-| `manager@taskpulse.demo` | `TaskPulse2024` | Manager |
-| `lead@taskpulse.demo` | `TaskPulse2024` | Team Lead |
-| `dev@taskpulse.demo` | `TaskPulse2024` | Employee |
-| `viewer@taskpulse.demo` | `TaskPulse2024` | Viewer |
+| `admin@acme.com` | `demo123` | Org Admin |
+| `manager@acme.com` | `demo123` | Manager |
+| `lead@acme.com` | `demo123` | Team Lead |
+| `dev1@acme.com` | `demo123` | Employee |
+| `viewer@acme.com` | `demo123` | Viewer |
+
+> Additional seeded employees (`dev2`–`dev5@acme.com`) and a second team lead (`lead2@acme.com`) are also available, all with `demo123`.
 
 ---
 
@@ -194,8 +197,18 @@ npm run dev
 
 ```bash
 cd backend
+
+# Full demo dataset (org, users, tasks, skills, automation, etc.)
 python scripts/seed_data.py
+
+# Login accounts only (org + demo users + their Supabase Auth records).
+# Idempotent and safe to re-run — use this to (re)provision logins.
+python scripts/seed_data.py --users-only
 ```
+
+> The seed provisions each demo account in **Supabase Auth** and links it via
+> `supabase_auth_id`, since authentication is delegated to Supabase. A valid
+> `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `DATABASE_URL` must be set.
 
 ### 5. Access
 
